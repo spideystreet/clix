@@ -82,6 +82,6 @@ EXIT_AUTH_ERROR = 2
 EXIT_RATE_LIMIT = 3
 
 # Config
-CONFIG_DIR_NAME = "x-cli"
+CONFIG_DIR_NAME = "clix"
 CONFIG_FILE_NAME = "config.toml"
 AUTH_FILE_NAME = "auth.json"

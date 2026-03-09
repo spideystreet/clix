@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import time
 
-from x_cli.core.constants import DEFAULT_DELAY_SECONDS, WRITE_DELAY_RANGE
+from clix.core.constants import DEFAULT_DELAY_SECONDS, WRITE_DELAY_RANGE
 
 
 def delay(base: float = DEFAULT_DELAY_SECONDS, jitter_factor: float = 0.5) -> None:

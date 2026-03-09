@@ -1,8 +1,8 @@
-# x-cli specific
+# clix specific
 auth.json
 cookies.json
 *.cookies
-.x-cli-credentials
+.clix-credentials
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -211,3 +211,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Claude
+.claude/settings.json

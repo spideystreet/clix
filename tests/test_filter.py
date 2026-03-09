@@ -1,8 +1,8 @@
 """Tests for tweet filtering and scoring."""
 
-from x_cli.core.config import FilterConfig
-from x_cli.models.tweet import Tweet, TweetEngagement
-from x_cli.utils.filter import filter_tweets, score_tweet
+from clix.core.config import FilterConfig
+from clix.models.tweet import Tweet, TweetEngagement
+from clix.utils.filter import filter_tweets, score_tweet
 
 
 def _make_tweet(tweet_id: str, likes: int = 0, retweets: int = 0, views: int = 0) -> Tweet:

@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from x_cli.cli.helpers import get_client, is_json_mode, output_json
-from x_cli.display.formatter import format_tweet_list
+from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.display.formatter import format_tweet_list
 
 feed_app = typer.Typer(no_args_is_help=False, invoke_without_command=True)
 
@@ -32,8 +32,8 @@ def feed(
     if ctx.invoked_subcommand is not None:
         return
 
-    from x_cli.core.api import get_home_timeline
-    from x_cli.utils.filter import filter_tweets
+    from clix.core.api import get_home_timeline
+    from clix.utils.filter import filter_tweets
 
     all_tweets = []
     cursor = None

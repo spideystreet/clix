@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from x_cli.cli.helpers import get_client, is_json_mode, output_json
-from x_cli.display.formatter import (
+from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.display.formatter import (
     console,
     format_tweet_list,
     format_user,
@@ -29,7 +29,7 @@ def user_profile(
     if ctx.invoked_subcommand is not None:
         return
 
-    from x_cli.core.api import get_user_by_handle
+    from clix.core.api import get_user_by_handle
 
     handle = handle.lstrip("@")
 
@@ -55,7 +55,7 @@ def user_tweets(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View a user's tweets."""
-    from x_cli.core.api import get_user_by_handle, get_user_tweets
+    from clix.core.api import get_user_by_handle, get_user_tweets
 
     handle = handle.lstrip("@")
 
@@ -81,7 +81,7 @@ def user_likes(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View a user's liked tweets."""
-    from x_cli.core.api import get_user_by_handle, get_user_likes
+    from clix.core.api import get_user_by_handle, get_user_likes
 
     handle = handle.lstrip("@")
 
@@ -107,7 +107,7 @@ def user_followers(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View a user's followers."""
-    from x_cli.core.api import get_followers, get_user_by_handle
+    from clix.core.api import get_followers, get_user_by_handle
 
     handle = handle.lstrip("@")
 
@@ -133,7 +133,7 @@ def user_following(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View who a user follows."""
-    from x_cli.core.api import get_following, get_user_by_handle
+    from clix.core.api import get_following, get_user_by_handle
 
     handle = handle.lstrip("@")
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from x_cli.core.client import XClient
-from x_cli.models.tweet import TimelineResponse, Tweet
-from x_cli.models.user import User
+from clix.core.client import XClient
+from clix.models.tweet import TimelineResponse, Tweet
+from clix.models.user import User
 
 
 def _extract_tweets_from_timeline(data: dict[str, Any]) -> TimelineResponse:

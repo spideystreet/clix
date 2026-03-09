@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from x_cli.core.constants import (
+from clix.core.constants import (
     CONFIG_DIR_NAME,
     CONFIG_FILE_NAME,
     DEFAULT_COUNT,

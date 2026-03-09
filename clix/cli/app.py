@@ -8,8 +8,8 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from x_cli.cli.helpers import get_client, is_json_mode, output_json
-from x_cli.core.auth import (
+from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.core.auth import (
     AuthCredentials,
     AuthError,
     extract_cookies_from_browser,
@@ -19,11 +19,11 @@ from x_cli.core.auth import (
     save_auth,
     set_default_account,
 )
-from x_cli.core.constants import EXIT_AUTH_ERROR, EXIT_ERROR
-from x_cli.display.formatter import print_error, print_success, print_warning
+from clix.core.constants import EXIT_AUTH_ERROR, EXIT_ERROR
+from clix.display.formatter import print_error, print_success, print_warning
 
 app = typer.Typer(
-    name="x",
+    name="clix",
     help="Twitter/X CLI — browse, search, and post from your terminal.",
     no_args_is_help=True,
     rich_markup_mode="rich",
@@ -160,7 +160,7 @@ def config_cmd(
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
 ):
     """Show current configuration."""
-    from x_cli.core.config import Config
+    from clix.core.config import Config
 
     cfg = Config.load()
     if is_json_mode(json_output):
@@ -181,8 +181,8 @@ def bookmarks_cmd(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View your bookmarks."""
-    from x_cli.core.api import get_bookmarks
-    from x_cli.display.formatter import format_tweet_list
+    from clix.core.api import get_bookmarks
+    from clix.display.formatter import format_tweet_list
 
     with get_client(account) as client:
         response = get_bookmarks(client, count)
@@ -207,7 +207,7 @@ def post(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Post a new tweet."""
-    from x_cli.core.api import create_tweet
+    from clix.core.api import create_tweet
 
     with get_client(account) as client:
         result = create_tweet(client, text, reply_to_id=reply_to, quote_tweet_url=quote)
@@ -225,7 +225,7 @@ def like(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Like a tweet."""
-    from x_cli.core.api import like_tweet
+    from clix.core.api import like_tweet
 
     with get_client(account) as client:
         result = like_tweet(client, tweet_id)
@@ -243,7 +243,7 @@ def unlike(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Unlike a tweet."""
-    from x_cli.core.api import unlike_tweet
+    from clix.core.api import unlike_tweet
 
     with get_client(account) as client:
         result = unlike_tweet(client, tweet_id)
@@ -261,7 +261,7 @@ def rt(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Retweet a tweet."""
-    from x_cli.core.api import retweet
+    from clix.core.api import retweet
 
     with get_client(account) as client:
         result = retweet(client, tweet_id)
@@ -279,7 +279,7 @@ def unrt(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Undo a retweet."""
-    from x_cli.core.api import unretweet
+    from clix.core.api import unretweet
 
     with get_client(account) as client:
         result = unretweet(client, tweet_id)
@@ -297,7 +297,7 @@ def bm(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Bookmark a tweet."""
-    from x_cli.core.api import bookmark_tweet
+    from clix.core.api import bookmark_tweet
 
     with get_client(account) as client:
         result = bookmark_tweet(client, tweet_id)
@@ -315,7 +315,7 @@ def unbm(
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Remove a bookmark."""
-    from x_cli.core.api import unbookmark_tweet
+    from clix.core.api import unbookmark_tweet
 
     with get_client(account) as client:
         result = unbookmark_tweet(client, tweet_id)
@@ -334,7 +334,7 @@ def delete(
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
 ):
     """Delete a tweet."""
-    from x_cli.core.api import delete_tweet
+    from clix.core.api import delete_tweet
 
     if not force and sys.stdout.isatty():
         confirm = typer.confirm(f"Delete tweet {tweet_id}?")
@@ -358,10 +358,10 @@ def delete(
 
 def _register_subcommands() -> None:
     """Register subcommand groups."""
-    from x_cli.cli.feed import feed_app
-    from x_cli.cli.search import search_app
-    from x_cli.cli.tweet import tweet_app
-    from x_cli.cli.user import user_app
+    from clix.cli.feed import feed_app
+    from clix.cli.search import search_app
+    from clix.cli.tweet import tweet_app
+    from clix.cli.user import user_app
 
     app.add_typer(feed_app, name="feed", help="View your timeline")
     app.add_typer(tweet_app, name="tweet", help="View or manage tweets")

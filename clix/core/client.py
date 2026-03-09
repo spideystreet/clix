@@ -9,8 +9,8 @@ from typing import Any
 
 from curl_cffi import requests as curl_requests
 
-from x_cli.core.auth import AuthCredentials, AuthError, get_credentials
-from x_cli.core.constants import (
+from clix.core.auth import AuthCredentials, AuthError, get_credentials
+from clix.core.constants import (
     BASE_URL,
     BEARER_TOKEN,
     DEFAULT_FEATURES,
@@ -18,7 +18,7 @@ from x_cli.core.constants import (
     GRAPHQL_BASE,
     GRAPHQL_ENDPOINTS,
 )
-from x_cli.utils.rate_limit import backoff_delay, delay, write_delay
+from clix.utils.rate_limit import backoff_delay, delay, write_delay
 
 # Chrome versions for impersonation
 CHROME_VERSIONS = [

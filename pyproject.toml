@@ -1,10 +1,10 @@
 [project]
-name = "x-cli"
+name = "clix"
 version = "0.1.0"
 description = "A command-line interface for Twitter/X using cookie-based authentication"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 authors = [
     { name = "spideystreet", email = "dhicham.pro@gmail.com" },
 ]
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-x = "x_cli.cli.app:app"
+clix = "clix.cli.app:app"
 
 [dependency-groups]
 dev = [

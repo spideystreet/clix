@@ -1,6 +1,6 @@
 """Tests for configuration."""
 
-from x_cli.core.config import Config, DisplayConfig, RequestConfig
+from clix.core.config import Config, DisplayConfig, RequestConfig
 
 
 class TestConfig:

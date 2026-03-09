@@ -1,13 +1,13 @@
-# x-cli Design Document
+# clix Design Document
 
 ## Goal
 Build a Twitter/X CLI tool that works via cookie-based auth (no API keys).
 Optimized for both human terminal use and AI agent integration.
 
-## Key Differences from twitter-cli (reference)
-1. **typer** instead of click — better autocompletion, modern DX
-2. **rich** output — colored panels, tables, tree views for threads
-3. **TOML config** — Pythonic standard vs YAML
+## Design Choices
+1. **typer** — modern CLI framework with autocompletion
+2. **rich** — colored panels, tables, tree views for threads
+3. **TOML config** — Pythonic standard
 4. **pydantic models** — typed, validated data structures
 5. **SKILL.md** — first-class AI agent support
 6. **Multi-account** — switch between accounts
@@ -22,7 +22,7 @@ Optimized for both human terminal use and AI agent integration.
 
 ## Auth Flow
 1. Check env vars (X_AUTH_TOKEN, X_CT0)
-2. Check stored credentials (~/.config/x-cli/auth.json)
+2. Check stored credentials (~/.config/clix/auth.json)
 3. Extract from browser (Chrome > Firefox > Edge > Brave)
 4. Store extracted cookies for reuse (encrypted with machine key)
 

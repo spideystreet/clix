@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from x_cli.cli.app import app
+from clix.cli.app import app
 
 runner = CliRunner()
 

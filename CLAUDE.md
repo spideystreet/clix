@@ -1,4 +1,4 @@
-# x-cli — Twitter/X CLI Tool
+# clix — Twitter/X CLI Tool
 
 ## Project Overview
 A command-line interface for Twitter/X that uses cookie-based authentication (no API keys).
@@ -16,9 +16,9 @@ Designed for both humans (rich terminal output) and AI agents (structured JSON o
 
 ## Project Structure
 ```
-x_cli/
+clix/
 ├── __init__.py        # version
-├── __main__.py        # python -m x_cli
+├── __main__.py        # python -m clix
 ├── cli/               # typer commands
 │   ├── app.py         # main app + global options
 │   ├── feed.py        # feed commands
@@ -42,18 +42,18 @@ x_cli/
 ```
 
 ## Commands
-- `x feed [--type for-you|following] [--count N]` — timeline
-- `x search <query> [--type top|latest|photos|videos]` — search
-- `x tweet <id>` — view tweet + thread
-- `x user <handle>` — user profile + recent tweets
-- `x post <text> [--reply-to ID]` — post tweet
-- `x delete <id>` — delete tweet
-- `x like/unlike <id>` — like operations
-- `x retweet/unretweet <id>` — retweet operations
-- `x bookmark/unbookmark <id>` — bookmark operations
-- `x bookmarks` — list bookmarks
-- `x auth` — authenticate / check auth status
-- `x config` — manage config
+- `clix feed [--type for-you|following] [--count N]` — timeline
+- `clix search <query> [--type top|latest|photos|videos]` — search
+- `clix tweet <id>` — view tweet + thread
+- `clix user <handle>` — user profile + recent tweets
+- `clix post <text> [--reply-to ID]` — post tweet
+- `clix delete <id>` — delete tweet
+- `clix like/unlike <id>` — like operations
+- `clix retweet/unretweet <id>` — retweet operations
+- `clix bookmark/unbookmark <id>` — bookmark operations
+- `clix bookmarks` — list bookmarks
+- `clix auth` — authenticate / check auth status
+- `clix config` — manage config
 
 ## Conventions
 - All commands support `--json` flag for structured JSON output
@@ -62,7 +62,7 @@ x_cli/
 - Atomic commits with descriptive messages
 - Never commit secrets (.env, cookies, tokens)
 - Use `ruff` for formatting and linting before commits
-- Tests in `tests/` mirroring `x_cli/` structure
+- Tests in `tests/` mirroring `clix/` structure
 
 ## Git Config
 - User: spideystreet <dhicham.pro@gmail.com>
@@ -71,5 +71,5 @@ x_cli/
 
 ## Auth Priority
 1. Environment variables: `X_AUTH_TOKEN`, `X_CT0`
-2. Stored credentials: `~/.config/x-cli/auth.json` (encrypted)
+2. Stored credentials: `~/.config/clix/auth.json` (encrypted)
 3. Browser cookie extraction (Chrome, Firefox, Edge, Brave)

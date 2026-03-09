@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from x_cli.core.constants import AUTH_FILE_NAME, CONFIG_DIR_NAME
+from clix.core.constants import AUTH_FILE_NAME, CONFIG_DIR_NAME
 
 
 class AuthCredentials(BaseModel):
@@ -294,6 +294,6 @@ def get_credentials(account: str | None = None) -> AuthCredentials:
     raise AuthError(
         "No Twitter/X credentials found. Options:\n"
         "  1. Set X_AUTH_TOKEN and X_CT0 environment variables\n"
-        "  2. Run 'x auth login' to extract from browser\n"
-        "  3. Run 'x auth set' to manually enter credentials"
+        "  2. Run 'clix auth login' to extract from browser\n"
+        "  3. Run 'clix auth set' to manually enter credentials"
     )

@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from x_cli.cli.helpers import get_client, is_json_mode, output_json
-from x_cli.display.formatter import console, format_thread, format_tweet
+from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.display.formatter import console, format_thread, format_tweet
 
 tweet_app = typer.Typer(no_args_is_help=False, invoke_without_command=True)
 
@@ -24,13 +24,13 @@ def tweet(
     if ctx.invoked_subcommand is not None:
         return
 
-    from x_cli.core.api import get_tweet_detail
+    from clix.core.api import get_tweet_detail
 
     with get_client(account) as client:
         tweets = get_tweet_detail(client, tweet_id)
 
     if not tweets:
-        from x_cli.display.formatter import print_error
+        from clix.display.formatter import print_error
 
         print_error(f"Tweet {tweet_id} not found")
         raise typer.Exit(1)

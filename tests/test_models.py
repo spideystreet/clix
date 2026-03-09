@@ -1,7 +1,7 @@
 """Tests for data models."""
 
-from x_cli.models.tweet import TimelineResponse, Tweet, TweetEngagement, TweetMedia
-from x_cli.models.user import User
+from clix.models.tweet import TimelineResponse, Tweet, TweetEngagement, TweetMedia
+from clix.models.user import User
 
 
 class TestTweetModel:

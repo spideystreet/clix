@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from x_cli.cli.helpers import get_client, is_json_mode, output_json
-from x_cli.display.formatter import format_tweet_list
+from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.display.formatter import format_tweet_list
 
 search_app = typer.Typer(no_args_is_help=False, invoke_without_command=True)
 
@@ -28,7 +28,7 @@ def search(
     if ctx.invoked_subcommand is not None:
         return
 
-    from x_cli.core.api import search_tweets
+    from clix.core.api import search_tweets
 
     all_tweets = []
     cursor = None

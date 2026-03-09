@@ -8,8 +8,8 @@ import sys
 import typer
 from rich.console import Console
 
-from x_cli.core.auth import AuthError
-from x_cli.core.constants import EXIT_AUTH_ERROR
+from clix.core.auth import AuthError
+from clix.core.constants import EXIT_AUTH_ERROR
 
 console = Console()
 
@@ -32,12 +32,12 @@ def output_json(data: object) -> None:
 
 def get_client(account: str | None = None, proxy: str | None = None):
     """Create an XClient with error handling."""
-    from x_cli.core.client import XClient
+    from clix.core.client import XClient
 
     try:
         return XClient(account=account, proxy=proxy)
     except AuthError as e:
-        from x_cli.display.formatter import print_error
+        from clix.display.formatter import print_error
 
         print_error(str(e))
         raise typer.Exit(EXIT_AUTH_ERROR)

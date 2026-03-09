@@ -1,9 +1,9 @@
 ---
-name: x-cli
+name: clix
 description: "Interact with Twitter/X from the terminal — read timelines, search, post, like, retweet, bookmark. Use when user asks to check Twitter, post tweets, monitor accounts, search X, or manage bookmarks."
 ---
 
-# x-cli — Twitter/X CLI Skill
+# clix — Twitter/X CLI Skill
 
 A CLI tool for Twitter/X using cookie-based authentication (no API keys needed).
 
@@ -11,11 +11,11 @@ A CLI tool for Twitter/X using cookie-based authentication (no API keys needed).
 
 ```bash
 # Install (if not already)
-cd /path/to/x-cli && uv sync
+cd /path/to/clix && uv sync
 
 # Authenticate (one of these methods):
-x auth login                           # Extract cookies from browser
-x auth set --token TOKEN --ct0 CT0     # Manual cookie entry
+clix auth login                           # Extract cookies from browser
+clix auth set --token TOKEN --ct0 CT0     # Manual cookie entry
 export X_AUTH_TOKEN=xxx X_CT0=xxx      # Environment variables
 ```
 
@@ -25,55 +25,55 @@ export X_AUTH_TOKEN=xxx X_CT0=xxx      # Environment variables
 
 ```bash
 # Timeline
-x feed                                # For-you timeline
-x feed --type following               # Following timeline
-x feed --count 50                     # More tweets
-x feed --filter top --top 5           # Top 5 by engagement
+clix feed                                # For-you timeline
+clix feed --type following               # Following timeline
+clix feed --count 50                     # More tweets
+clix feed --filter top --top 5           # Top 5 by engagement
 
 # Search
-x search "query"                      # Search (Top results)
-x search "query" --type Latest        # Latest results
-x search "from:user topic"           # Search from specific user
+clix search "query"                      # Search (Top results)
+clix search "query" --type Latest        # Latest results
+clix search "from:user topic"           # Search from specific user
 
 # Tweets
-x tweet TWEET_ID                      # View single tweet
-x tweet TWEET_ID --thread             # View full thread
+clix tweet TWEET_ID                      # View single tweet
+clix tweet TWEET_ID --thread             # View full thread
 
 # Users
-x user handle                         # User profile
-x user tweets handle                  # User's tweets
-x user likes handle                   # User's likes
-x user followers handle               # User's followers
-x user following handle               # Who user follows
+clix user handle                         # User profile
+clix user tweets handle                  # User's tweets
+clix user likes handle                   # User's likes
+clix user followers handle               # User's followers
+clix user following handle               # Who user follows
 
 # Bookmarks
-x bookmarks                           # View your bookmarks
+clix bookmarks                           # View your bookmarks
 ```
 
 ### Writing
 
 ```bash
-x post "Hello world"                  # Post a tweet
-x post "reply text" --reply-to ID     # Reply to tweet
-x post "quote" --quote URL            # Quote tweet
-x delete TWEET_ID --force             # Delete (--force skips confirm)
-x like TWEET_ID                       # Like a tweet
-x unlike TWEET_ID                     # Unlike
-x retweet TWEET_ID                    # Retweet
-x unretweet TWEET_ID                  # Undo retweet
-x bookmark TWEET_ID                   # Bookmark
-x unbookmark TWEET_ID                 # Remove bookmark
+clix post "Hello world"                  # Post a tweet
+clix post "reply text" --reply-to ID     # Reply to tweet
+clix post "quote" --quote URL            # Quote tweet
+clix delete TWEET_ID --force             # Delete (--force skips confirm)
+clix like TWEET_ID                       # Like a tweet
+clix unlike TWEET_ID                     # Unlike
+clix retweet TWEET_ID                    # Retweet
+clix unretweet TWEET_ID                  # Undo retweet
+clix bookmark TWEET_ID                   # Bookmark
+clix unbookmark TWEET_ID                 # Remove bookmark
 ```
 
 ### Account Management
 
 ```bash
-x auth status                         # Check auth status
-x auth login                          # Extract browser cookies
-x auth login --browser chrome         # Specific browser
-x auth set --token T --ct0 C          # Manual credentials
-x auth accounts                       # List stored accounts
-x auth switch ACCOUNT_NAME            # Switch default account
+clix auth status                         # Check auth status
+clix auth login                          # Extract browser cookies
+clix auth login --browser chrome         # Specific browser
+clix auth set --token T --ct0 C          # Manual credentials
+clix auth accounts                       # List stored accounts
+clix auth switch ACCOUNT_NAME            # Switch default account
 ```
 
 ## JSON Output (Agent Mode)
@@ -81,10 +81,10 @@ x auth switch ACCOUNT_NAME            # Switch default account
 **All commands support `--json` for structured output.** Output is auto-JSON when stdout is not a TTY (piped).
 
 ```bash
-x feed --json                         # JSON array of tweets
-x search "query" --json               # JSON search results
-x user handle --json                  # JSON user profile
-x auth status --json                  # JSON auth check
+clix feed --json                         # JSON array of tweets
+clix search "query" --json               # JSON search results
+clix user handle --json                  # JSON user profile
+clix auth status --json                  # JSON auth check
 ```
 
 ### JSON Tweet Schema
@@ -118,7 +118,7 @@ x auth status --json                  # JSON auth check
 3. **Respect rate limits** — add delays between bulk operations
 4. **Use `--count`** to limit results (default: 20, max: 100)
 5. **Use `--pages`** for pagination (feed/search only)
-6. **Check auth first** with `x auth status --json` before operations
+6. **Check auth first** with `clix auth status --json` before operations
 7. **Use `--account`** for multi-account workflows
 
 ## Exit Codes

@@ -10,8 +10,8 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from x_cli.models.tweet import Tweet
-from x_cli.models.user import User
+from clix.models.tweet import Tweet
+from clix.models.user import User
 
 console = Console()
 

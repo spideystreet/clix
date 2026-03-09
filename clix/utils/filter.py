@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import math
 
-from x_cli.core.config import FilterConfig
-from x_cli.models.tweet import Tweet
+from clix.core.config import FilterConfig
+from clix.models.tweet import Tweet
 
 
 def score_tweet(tweet: Tweet, config: FilterConfig | None = None) -> float:

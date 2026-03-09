@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from x_cli.core.auth import (
+from clix.core.auth import (
     AuthCredentials,
     AuthError,
     get_auth_from_env,
@@ -57,7 +57,7 @@ class TestEnvAuth:
 class TestStoredAuth:
     def test_save_and_load(self, tmp_path):
         auth_file = tmp_path / "auth.json"
-        with patch("x_cli.core.auth.get_auth_file", return_value=auth_file):
+        with patch("clix.core.auth.get_auth_file", return_value=auth_file):
             creds = AuthCredentials(auth_token="saved_token", ct0="saved_ct0")
             save_auth(creds, "test_account")
 
@@ -67,12 +67,12 @@ class TestStoredAuth:
 
     def test_load_nonexistent(self, tmp_path):
         auth_file = tmp_path / "nonexistent.json"
-        with patch("x_cli.core.auth.get_auth_file", return_value=auth_file):
+        with patch("clix.core.auth.get_auth_file", return_value=auth_file):
             assert load_stored_auth() is None
 
     def test_multi_account(self, tmp_path):
         auth_file = tmp_path / "auth.json"
-        with patch("x_cli.core.auth.get_auth_file", return_value=auth_file):
+        with patch("clix.core.auth.get_auth_file", return_value=auth_file):
             creds1 = AuthCredentials(auth_token="t1", ct0="c1")
             creds2 = AuthCredentials(auth_token="t2", ct0="c2")
             save_auth(creds1, "account1")
@@ -91,8 +91,8 @@ class TestGetCredentials:
         auth_file = tmp_path / "auth.json"
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch("x_cli.core.auth.get_auth_file", return_value=auth_file),
-            patch("x_cli.core.auth.extract_cookies_from_browser", return_value=None),
+            patch("clix.core.auth.get_auth_file", return_value=auth_file),
+            patch("clix.core.auth.extract_cookies_from_browser", return_value=None),
         ):
             with pytest.raises(AuthError):
                 get_credentials()
