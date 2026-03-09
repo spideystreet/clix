@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="X.png" alt="clix" width="120">
+  <img src="https://github.com/user-attachments/assets/e7c0c8af-ae61-4a85-8aef-32a8367f505b" alt="clix" width="120">
 </p>
 
 <h3 align="center"><b>Twitter/X from your terminal. No API keys. No bullshit.</b></h3>
