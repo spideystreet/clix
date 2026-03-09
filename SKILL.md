@@ -152,7 +152,7 @@ Configure in your MCP client:
   "mcpServers": {
     "clix": {
       "command": "uvx",
-      "args": ["clix", "mcp"]
+      "args": ["clix0", "mcp"]
     }
   }
 }

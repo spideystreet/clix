@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-blue?style=flat-square" alt="PolyForm NC 1.0"></a>
-  <a href="https://pypi.org/project/clix/"><img src="https://img.shields.io/pypi/v/clix?style=flat-square&label=PyPI&color=green" alt="PyPI"></a>
+  <a href="https://pypi.org/project/clix0/"><img src="https://img.shields.io/pypi/v/clix0?style=flat-square&label=PyPI&color=green" alt="PyPI"></a>
 </p>
 
 ---
@@ -21,7 +21,7 @@ Works for humans (rich terminal output) and AI agents (structured JSON). Zero AP
 
 ```bash
 # install
-uv pip install clix
+uv pip install clix0
 
 # authenticate (extracts cookies from your browser)
 clix auth
@@ -67,7 +67,7 @@ clix ships as an [MCP](https://modelcontextprotocol.io) server — any MCP-compa
   "mcpServers": {
     "clix": {
       "command": "uvx",
-      "args": ["clix", "mcp"]
+      "args": ["clix0", "mcp"]
     }
   }
 }
@@ -80,7 +80,7 @@ Or with explicit auth:
   "mcpServers": {
     "clix": {
       "command": "uvx",
-      "args": ["clix", "mcp"],
+      "args": ["clix0", "mcp"],
       "env": {
         "X_AUTH_TOKEN": "your-token",
         "X_CT0": "your-ct0"
