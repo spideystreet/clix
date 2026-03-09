@@ -54,6 +54,7 @@ clix/
 - `clix bookmarks` — list bookmarks
 - `clix auth` — authenticate / check auth status
 - `clix config` — manage config
+- `clix mcp` — start MCP server (stdio transport)
 
 ## Conventions
 - All commands support `--json` flag for structured JSON output
