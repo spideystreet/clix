@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-blue?style=flat-square" alt="PolyForm NC 1.0"></a>
-  <a href="https://github.com/spideystreet/clix/actions"><img src="https://img.shields.io/github/actions/workflow/status/spideystreet/clix/ci.yml?style=flat-square&label=CI" alt="CI"></a>
+  <a href="https://pypi.org/project/clix/"><img src="https://img.shields.io/pypi/v/clix?style=flat-square&label=PyPI&color=green" alt="PyPI"></a>
 </p>
 
 ---
