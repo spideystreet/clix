@@ -1,0 +1,215 @@
+"""HTTP client for Twitter/X API with TLS fingerprinting."""
+
+from __future__ import annotations
+
+import json
+import os
+import random
+from typing import Any
+
+from curl_cffi import requests as curl_requests
+
+from clix.core.auth import AuthCredentials, AuthError, get_credentials
+from clix.core.constants import (
+    BASE_URL,
+    BEARER_TOKEN,
+    DEFAULT_FEATURES,
+    DEFAULT_FIELD_TOGGLES,
+    GRAPHQL_BASE,
+    GRAPHQL_ENDPOINTS,
+)
+from clix.utils.rate_limit import backoff_delay, delay, write_delay
+
+# Chrome versions for impersonation
+CHROME_VERSIONS = [
+    "chrome120",
+    "chrome123",
+    "chrome124",
+    "chrome126",
+    "chrome127",
+    "chrome131",
+    "chrome133a",
+]
+
+
+class APIError(Exception):
+    """Raised when an API call fails."""
+
+    def __init__(self, message: str, status_code: int = 0, response_data: Any = None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.response_data = response_data
+
+
+class RateLimitError(APIError):
+    """Raised when rate limited."""
+
+
+class XClient:
+    """HTTP client for Twitter/X GraphQL API."""
+
+    def __init__(
+        self,
+        credentials: AuthCredentials | None = None,
+        account: str | None = None,
+        proxy: str | None = None,
+    ):
+        self._credentials = credentials
+        self._account = account
+        self._proxy = proxy or os.environ.get("X_PROXY") or os.environ.get("TWITTER_PROXY")
+        self._session: curl_requests.Session | None = None
+
+    @property
+    def credentials(self) -> AuthCredentials:
+        """Lazy-load credentials."""
+        if self._credentials is None:
+            self._credentials = get_credentials(self._account)
+        return self._credentials
+
+    @property
+    def session(self) -> curl_requests.Session:
+        """Get or create HTTP session."""
+        if self._session is None:
+            impersonate = random.choice(CHROME_VERSIONS)
+            self._session = curl_requests.Session(impersonate=impersonate)
+
+            if self._proxy:
+                self._session.proxies = {
+                    "http": self._proxy,
+                    "https": self._proxy,
+                }
+        return self._session
+
+    def _get_headers(self) -> dict[str, str]:
+        """Build request headers."""
+        creds = self.credentials
+        return {
+            "authorization": f"Bearer {BEARER_TOKEN}",
+            "x-csrf-token": creds.ct0,
+            "x-twitter-auth-type": "OAuth2Session",
+            "x-twitter-active-user": "yes",
+            "x-twitter-client-language": "en",
+            "content-type": "application/json",
+            "referer": f"{BASE_URL}/home",
+            "origin": BASE_URL,
+        }
+
+    def _get_cookies(self) -> dict[str, str]:
+        """Build cookie dict."""
+        creds = self.credentials
+        cookies = dict(creds.cookies) if creds.cookies else {}
+        cookies["auth_token"] = creds.auth_token
+        cookies["ct0"] = creds.ct0
+        return cookies
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        params: dict | None = None,
+        json_data: dict | None = None,
+        max_retries: int = 3,
+    ) -> dict[str, Any]:
+        """Make an authenticated request with retry logic."""
+        headers = self._get_headers()
+        cookies = self._get_cookies()
+
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries):
+            try:
+                response = self.session.request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    cookies=cookies,
+                    params=params,
+                    json=json_data,
+                    timeout=30,
+                )
+
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 401:
+                    raise AuthError("Authentication failed. Cookies may be expired.")
+                elif response.status_code == 429:
+                    if attempt < max_retries - 1:
+                        backoff_delay(attempt)
+                        continue
+                    raise RateLimitError(
+                        "Rate limited by Twitter/X",
+                        status_code=429,
+                    )
+                elif response.status_code == 403:
+                    raise APIError(
+                        "Forbidden — account may be suspended or action not allowed",
+                        status_code=403,
+                    )
+                else:
+                    raise APIError(
+                        f"API error: HTTP {response.status_code}",
+                        status_code=response.status_code,
+                        response_data=response.text[:500],
+                    )
+
+            except (AuthError, RateLimitError, APIError):
+                raise
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    backoff_delay(attempt)
+                    continue
+
+        raise APIError(f"Request failed after {max_retries} retries: {last_error}")
+
+    def graphql_get(
+        self,
+        operation: str,
+        variables: dict[str, Any],
+        features: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Make a GraphQL GET request."""
+        endpoint = GRAPHQL_ENDPOINTS.get(operation, operation)
+        url = f"{GRAPHQL_BASE}/{endpoint}"
+
+        params = {
+            "variables": json.dumps(variables),
+            "features": json.dumps(features or DEFAULT_FEATURES),
+            "fieldToggles": json.dumps(DEFAULT_FIELD_TOGGLES),
+        }
+
+        result = self._request("GET", url, params=params)
+        delay()
+        return result
+
+    def graphql_post(
+        self,
+        operation: str,
+        variables: dict[str, Any],
+        features: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Make a GraphQL POST request (for write operations)."""
+        endpoint = GRAPHQL_ENDPOINTS.get(operation, operation)
+        url = f"{GRAPHQL_BASE}/{endpoint}"
+
+        json_data = {
+            "variables": variables,
+            "features": features or DEFAULT_FEATURES,
+            "queryId": endpoint.split("/")[0],
+        }
+
+        result = self._request("POST", url, json_data=json_data)
+        write_delay()
+        return result
+
+    def close(self) -> None:
+        """Close the HTTP session."""
+        if self._session:
+            self._session.close()
+            self._session = None
+
+    def __enter__(self) -> XClient:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
