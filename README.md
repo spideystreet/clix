@@ -58,6 +58,40 @@ clix search "LLM" | python process.py
 
 See [`SKILL.md`](SKILL.md) for AI agent integration docs.
 
+## MCP Server
+
+clix ships as an [MCP](https://modelcontextprotocol.io) server — any MCP-compatible client can use it.
+
+```json
+{
+  "mcpServers": {
+    "clix": {
+      "command": "uvx",
+      "args": ["clix", "mcp"]
+    }
+  }
+}
+```
+
+Or with explicit auth:
+
+```json
+{
+  "mcpServers": {
+    "clix": {
+      "command": "uvx",
+      "args": ["clix", "mcp"],
+      "env": {
+        "X_AUTH_TOKEN": "your-token",
+        "X_CT0": "your-ct0"
+      }
+    }
+  }
+}
+```
+
+**14 tools:** `get_feed`, `search`, `get_tweet`, `get_user`, `list_bookmarks`, `post_tweet`, `delete_tweet`, `like`, `unlike`, `retweet`, `unretweet`, `bookmark`, `unbookmark`, `auth_status`
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).

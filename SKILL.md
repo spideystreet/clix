@@ -137,6 +137,27 @@ clix auth status --json                  # JSON auth check
 - Exponential backoff on 429 responses
 - For bulk operations, add your own delays between calls
 
+## MCP Server
+
+clix is also available as an MCP server with 14 tools for any MCP-compatible client.
+
+```bash
+clix mcp    # Start stdio MCP server
+```
+
+Configure in your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "clix": {
+      "command": "uvx",
+      "args": ["clix", "mcp"]
+    }
+  }
+}
+```
+
 ## Proxy Support
 
 ```bash
