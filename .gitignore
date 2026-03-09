@@ -3,6 +3,7 @@ auth.json
 cookies.json
 *.cookies
 .clix-credentials
+docs/plans/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
