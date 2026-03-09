@@ -351,6 +351,19 @@ def delete(
 
 
 # =============================================================================
+# MCP server command
+# =============================================================================
+
+
+@app.command("mcp", help="Start the MCP server (stdio transport).")
+def mcp_server() -> None:
+    """Launch the clix MCP server for use with any MCP-compatible client."""
+    from clix.mcp.server import mcp
+
+    mcp.run(transport="stdio")
+
+
+# =============================================================================
 # Register sub-command groups (must be after app definition, import at bottom
 # to avoid circular imports)
 # =============================================================================
