@@ -214,4 +214,4 @@ marimo/_lsp/
 __marimo__/
 
 # Claude
-.claude/settings.json
+.claude/
