@@ -339,7 +339,7 @@ def get_bookmarks(
     if cursor:
         variables["cursor"] = cursor
 
-    data = client.graphql_get("Bookmarks", variables)
+    data = client.graphql_get("BookmarkSearchTimeline", variables)
     return _extract_tweets_from_timeline(data)
 
 

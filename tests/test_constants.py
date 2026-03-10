@@ -1,30 +1,24 @@
-"""Tests for GraphQL constants integrity."""
+"""Tests for constants module."""
 
-import re
+from clix.core.constants import (
+    BASE_URL,
+    BEARER_TOKEN,
+    DEFAULT_FIELD_TOGGLES,
+    GRAPHQL_BASE,
+)
 
-from clix.core.constants import GRAPHQL_ENDPOINTS
 
+class TestConstants:
+    """Verify remaining constants are well-defined."""
 
-class TestGraphQLEndpoints:
-    """Verify GraphQL endpoint definitions are well-formed."""
+    def test_base_url_is_https(self):
+        assert BASE_URL.startswith("https://")
 
-    def test_all_endpoints_have_valid_format(self):
-        """Each endpoint value must be '<query_id>/<operation_name>'."""
-        pattern = re.compile(r"^[A-Za-z0-9_-]+/[A-Za-z]+$")
-        for name, endpoint in GRAPHQL_ENDPOINTS.items():
-            assert pattern.match(endpoint), f"Endpoint '{name}' has invalid format: '{endpoint}'"
+    def test_graphql_base_includes_api(self):
+        assert "graphql" in GRAPHQL_BASE
 
-    def test_endpoint_name_matches_key(self):
-        """The operation name in the value must match the dict key."""
-        for name, endpoint in GRAPHQL_ENDPOINTS.items():
-            op_name = endpoint.split("/", 1)[1]
-            assert op_name == name, f"Key '{name}' does not match operation name '{op_name}'"
+    def test_bearer_token_is_set(self):
+        assert len(BEARER_TOKEN) > 50
 
-    def test_no_duplicate_query_ids(self):
-        """Each query ID should be unique."""
-        query_ids = [v.split("/")[0] for v in GRAPHQL_ENDPOINTS.values()]
-        assert len(query_ids) == len(set(query_ids)), "Duplicate query IDs found"
-
-    def test_search_timeline_present(self):
-        """SearchTimeline endpoint must exist (regression for issue #9)."""
-        assert "SearchTimeline" in GRAPHQL_ENDPOINTS
+    def test_field_toggles_has_article_key(self):
+        assert "withArticlePlainText" in DEFAULT_FIELD_TOGGLES

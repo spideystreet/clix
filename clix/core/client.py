@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import random
 from typing import Any
@@ -13,12 +14,13 @@ from clix.core.auth import AuthCredentials, AuthError, get_credentials
 from clix.core.constants import (
     BASE_URL,
     BEARER_TOKEN,
-    DEFAULT_FEATURES,
     DEFAULT_FIELD_TOGGLES,
     GRAPHQL_BASE,
-    GRAPHQL_ENDPOINTS,
 )
+from clix.core.endpoints import get_features, get_graphql_endpoints, invalidate_cache
 from clix.utils.rate_limit import backoff_delay, delay, write_delay
+
+logger = logging.getLogger(__name__)
 
 # Chrome versions for impersonation
 CHROME_VERSIONS = [
@@ -43,6 +45,10 @@ class APIError(Exception):
 
 class RateLimitError(APIError):
     """Raised when rate limited."""
+
+
+class StaleEndpointError(APIError):
+    """Raised when a GraphQL endpoint returns 404 (stale operation ID)."""
 
 
 class XClient:
@@ -145,6 +151,11 @@ class XClient:
                         "Forbidden — account may be suspended or action not allowed",
                         status_code=403,
                     )
+                elif response.status_code == 404:
+                    raise StaleEndpointError(
+                        "GraphQL endpoint not found (HTTP 404) — operation IDs may be stale",
+                        status_code=404,
+                    )
                 else:
                     raise APIError(
                         f"API error: HTTP {response.status_code}",
@@ -152,7 +163,7 @@ class XClient:
                         response_data=response.text[:500],
                     )
 
-            except (AuthError, RateLimitError, APIError):
+            except (AuthError, RateLimitError, StaleEndpointError, APIError):
                 raise
             except Exception as e:
                 last_error = e
@@ -169,18 +180,42 @@ class XClient:
         features: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a GraphQL GET request."""
-        endpoint = GRAPHQL_ENDPOINTS.get(operation, operation)
-        url = f"{GRAPHQL_BASE}/{endpoint}"
+        for attempt in range(2):
+            endpoints = get_graphql_endpoints()
+            endpoint = endpoints.get(operation)
+            if not endpoint:
+                raise APIError(
+                    f"Unknown GraphQL operation '{operation}' — "
+                    f"not found in {len(endpoints)} extracted operations. "
+                    f"Available: {', '.join(sorted(endpoints.keys()))}"
+                )
+            url = f"{GRAPHQL_BASE}/{endpoint}"
 
-        params = {
-            "variables": json.dumps(variables),
-            "features": json.dumps(features or DEFAULT_FEATURES),
-            "fieldToggles": json.dumps(DEFAULT_FIELD_TOGGLES),
-        }
+            params = {
+                "variables": json.dumps(variables),
+                "features": json.dumps(features or get_features()),
+                "fieldToggles": json.dumps(DEFAULT_FIELD_TOGGLES),
+            }
 
-        result = self._request("GET", url, params=params)
-        delay()
-        return result
+            try:
+                result = self._request("GET", url, params=params)
+                delay()
+                return result
+            except StaleEndpointError:
+                if attempt == 0:
+                    logger.warning(
+                        "HTTP 404 for '%s' — operation IDs may be stale, "
+                        "invalidating cache and retrying with fresh IDs",
+                        operation,
+                    )
+                    invalidate_cache()
+                    continue
+                raise APIError(
+                    f"GraphQL endpoint '{operation}' not found (HTTP 404) "
+                    f"even after cache refresh — X.com may have removed this operation",
+                    status_code=404,
+                )
+        raise APIError(f"Unreachable: graphql_get retry loop for '{operation}'")
 
     def graphql_post(
         self,
@@ -189,18 +224,42 @@ class XClient:
         features: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a GraphQL POST request (for write operations)."""
-        endpoint = GRAPHQL_ENDPOINTS.get(operation, operation)
-        url = f"{GRAPHQL_BASE}/{endpoint}"
+        for attempt in range(2):
+            endpoints = get_graphql_endpoints()
+            endpoint = endpoints.get(operation)
+            if not endpoint:
+                raise APIError(
+                    f"Unknown GraphQL operation '{operation}' — "
+                    f"not found in {len(endpoints)} extracted operations. "
+                    f"Available: {', '.join(sorted(endpoints.keys()))}"
+                )
+            url = f"{GRAPHQL_BASE}/{endpoint}"
 
-        json_data = {
-            "variables": variables,
-            "features": features or DEFAULT_FEATURES,
-            "queryId": endpoint.split("/")[0],
-        }
+            json_data = {
+                "variables": variables,
+                "features": features or get_features(),
+                "queryId": endpoint.split("/")[0],
+            }
 
-        result = self._request("POST", url, json_data=json_data)
-        write_delay()
-        return result
+            try:
+                result = self._request("POST", url, json_data=json_data)
+                write_delay()
+                return result
+            except StaleEndpointError:
+                if attempt == 0:
+                    logger.warning(
+                        "HTTP 404 for '%s' — operation IDs may be stale, "
+                        "invalidating cache and retrying with fresh IDs",
+                        operation,
+                    )
+                    invalidate_cache()
+                    continue
+                raise APIError(
+                    f"GraphQL endpoint '{operation}' not found (HTTP 404) "
+                    f"even after cache refresh — X.com may have removed this operation",
+                    status_code=404,
+                )
+        raise APIError(f"Unreachable: graphql_post retry loop for '{operation}'")
 
     def close(self) -> None:
         """Close the HTTP session."""
