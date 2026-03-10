@@ -31,7 +31,7 @@ def _extract_tweets_from_timeline(data: dict[str, Any]) -> TimelineResponse:
             entry_id = entry.get("entryId", "")
             content = entry.get("content", {})
 
-            if entry_id.startswith("cursor-top") or entry_id.startswith("cursor-top"):
+            if entry_id.startswith("cursor-top"):
                 cursor_top = content.get("value") or _extract_cursor(content)
             elif entry_id.startswith("cursor-bottom"):
                 cursor_bottom = content.get("value") or _extract_cursor(content)
