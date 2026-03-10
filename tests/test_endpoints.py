@@ -106,19 +106,19 @@ class TestExtractOperationsFromJs:
 
     def test_extracts_all_operations(self):
         """Must find all queryId/operationName pairs."""
-        ops = extract_operations_from_js(FAKE_JS_CONTENT)
+        ops, _ = extract_operations_from_js(FAKE_JS_CONTENT)
         assert ops["HomeTimeline"] == "snvCaalBp51MiDb3-nGblg/HomeTimeline"
         assert ops["CreateTweet"] == "uY34Pldm6W89yqswRmPMSQ/CreateTweet"
         assert ops["SearchTimeline"] == "nWemVnGJ6A5eQAR5-oQeAg/SearchTimeline"
 
     def test_returns_empty_dict_on_no_matches(self):
         """No crash on JS without any operations."""
-        ops = extract_operations_from_js(FAKE_JS_NO_OPS)
+        ops, _ = extract_operations_from_js(FAKE_JS_NO_OPS)
         assert ops == {}
 
     def test_query_id_format_is_valid(self):
         """Extracted query IDs must be base64url-like strings."""
-        ops = extract_operations_from_js(FAKE_JS_CONTENT)
+        ops, _ = extract_operations_from_js(FAKE_JS_CONTENT)
         pattern = re.compile(r"^[A-Za-z0-9_-]{10,30}/[A-Za-z]+$")
         for name, endpoint in ops.items():
             assert pattern.match(endpoint), f"Bad format for {name}: {endpoint}"
@@ -130,8 +130,14 @@ class TestExtractOperationsFromJs:
         ,operationName:"MultiLineOp"
         ,operationType:"query"}
         """
-        ops = extract_operations_from_js(multiline_js)
+        ops, _ = extract_operations_from_js(multiline_js)
         assert ops["MultiLineOp"] == "abc123def456ghij_k/MultiLineOp"
+
+    def test_extracts_feature_switches(self):
+        """Must extract per-operation featureSwitches from metadata."""
+        _, op_features = extract_operations_from_js(FAKE_JS_CONTENT)
+        assert "HomeTimeline" in op_features
+        assert "responsive_web_graphql_timeline_navigation_enabled" in op_features["HomeTimeline"]
 
 
 # =============================================================================
@@ -272,7 +278,7 @@ class TestGetGraphqlEndpoints:
             patch("clix.core.endpoints._get_cache_path", return_value=cache_file),
             patch(
                 "clix.core.endpoints._fetch_and_extract",
-                return_value=(fresh_ops, fresh_features),
+                return_value=(fresh_ops, fresh_features, {}),
             ),
         ):
             endpoints = get_graphql_endpoints()
@@ -351,15 +357,16 @@ class TestLiveExtraction:
         """Must extract a reasonable number of operations from live X.com."""
         from clix.core.endpoints import _fetch_and_extract
 
-        ops, features = _fetch_and_extract()
+        ops, features, op_features = _fetch_and_extract()
         assert len(ops) > 50, f"Expected >50 operations, got {len(ops)}"
         assert len(features) > 10, f"Expected >10 features, got {len(features)}"
+        assert len(op_features) > 50, f"Expected >50 op_features, got {len(op_features)}"
 
     def test_all_required_operations_present(self):
         """Every operation clix uses must be present in extracted IDs."""
         from clix.core.endpoints import _fetch_and_extract
 
-        ops, _ = _fetch_and_extract()
+        ops, _, _ = _fetch_and_extract()
         missing = [op for op in REQUIRED_OPERATIONS if op not in ops]
         assert not missing, f"Missing required operations: {missing}"
 
