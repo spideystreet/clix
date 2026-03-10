@@ -3,12 +3,10 @@
 ## Branches
 
 - `main` — stable, release-ready. Never commit directly.
-- `dev` — integration branch. Features merge here first.
-- `feat/<short-description>` — new features, branch from `dev`
-- `fix/<short-description>` — bug fixes, branch from `dev`
-- `hotfix/<short-description>` — critical production fixes, branch from `main`
+- `feat/<short-description>` — new features, branch from `main`
+- `fix/<short-description>` — bug fixes, branch from `main`
 
-**Flow:** `feat/xxx` → PR to `dev` → when stable, `dev` → PR to `main`
+**Flow:** `feat/xxx` or `fix/xxx` → PR to `main` → tag on `main`
 
 ## Commits
 
@@ -26,7 +24,7 @@
 
 ## Pull Requests
 
-- Always from feature/fix branch → `dev` (or `dev` → `main`)
+- Always from feature/fix branch → `main`
 - PR title follows same `type(scope): summary` convention
 - PR must include: summary (what + why), test plan
 - Author: **spicode-bot** — Reviewer: **spideystreet**
@@ -36,5 +34,5 @@
 ## Tags & Releases
 
 - Semantic versioning: `vMAJOR.MINOR.PATCH`
-- Tag on `main` only, after merge from `dev`
+- Tag on `main` only, after merge
 - Create GitHub release with changelog
