@@ -1,6 +1,8 @@
 """Tests for API response parsing logic."""
 
-from clix.core.api import _extract_tweets_from_timeline
+from unittest.mock import MagicMock, patch
+
+from clix.core.api import _extract_tweets_from_timeline, get_bookmarks
 
 
 class TestCursorExtraction:
@@ -53,3 +55,36 @@ class TestCursorExtraction:
         assert result.cursor_top is None
         assert result.cursor_bottom is None
         assert result.has_more is False
+
+
+class TestGetBookmarks:
+    """Verify get_bookmarks sends the correct GraphQL variables."""
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_includes_search_query_variable(self, mock_client_cls: MagicMock) -> None:
+        """BookmarkSearchTimeline requires search_query to avoid HTTP 422."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {
+            "data": {"bookmark_timeline_v2": {"timeline": {"instructions": []}}}
+        }
+
+        get_bookmarks(client, count=10)
+
+        args, _ = client.graphql_get.call_args
+        operation, variables = args
+        assert operation == "BookmarkSearchTimeline"
+        assert "search_query" in variables
+        assert variables["search_query"] == ""
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_passes_cursor_when_provided(self, mock_client_cls: MagicMock) -> None:
+        """Cursor should be forwarded for pagination."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {
+            "data": {"bookmark_timeline_v2": {"timeline": {"instructions": []}}}
+        }
+
+        get_bookmarks(client, count=20, cursor="abc123")
+
+        _, variables = client.graphql_get.call_args[0]
+        assert variables["cursor"] == "abc123"

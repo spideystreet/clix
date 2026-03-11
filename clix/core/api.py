@@ -335,6 +335,7 @@ def get_bookmarks(
     variables: dict[str, Any] = {
         "count": count,
         "includePromotedContent": False,
+        "search_query": "",
     }
     if cursor:
         variables["cursor"] = cursor
