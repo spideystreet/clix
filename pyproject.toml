@@ -1,6 +1,6 @@
 [project]
 name = "clix0"
-version = "0.2.1"
+version = "0.2.2"
 description = "A command-line interface for Twitter/X using cookie-based authentication"
 readme = "README.md"
 requires-python = ">=3.11"
