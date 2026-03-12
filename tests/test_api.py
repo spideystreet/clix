@@ -61,8 +61,8 @@ class TestGetBookmarks:
     """Verify get_bookmarks sends the correct GraphQL variables."""
 
     @patch("clix.core.api.XClient", autospec=True)
-    def test_includes_search_query_variable(self, mock_client_cls: MagicMock) -> None:
-        """BookmarkSearchTimeline requires search_query to avoid HTTP 422."""
+    def test_includes_raw_query_variable(self, mock_client_cls: MagicMock) -> None:
+        """BookmarkSearchTimeline requires rawQuery to avoid HTTP 422."""
         client = mock_client_cls.return_value
         client.graphql_get.return_value = {
             "data": {"bookmark_timeline_v2": {"timeline": {"instructions": []}}}
@@ -73,8 +73,8 @@ class TestGetBookmarks:
         args, _ = client.graphql_get.call_args
         operation, variables = args
         assert operation == "BookmarkSearchTimeline"
-        assert "search_query" in variables
-        assert variables["search_query"] == ""
+        assert "rawQuery" in variables
+        assert variables["rawQuery"] == ""
 
     @patch("clix.core.api.XClient", autospec=True)
     def test_passes_cursor_when_provided(self, mock_client_cls: MagicMock) -> None:
