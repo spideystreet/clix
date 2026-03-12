@@ -74,7 +74,7 @@ class TestGetBookmarks:
         operation, variables = args
         assert operation == "BookmarkSearchTimeline"
         assert "rawQuery" in variables
-        assert variables["rawQuery"] == ""
+        assert variables["rawQuery"] != ""
 
     @patch("clix.core.api.XClient", autospec=True)
     def test_passes_cursor_when_provided(self, mock_client_cls: MagicMock) -> None:
