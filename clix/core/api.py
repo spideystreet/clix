@@ -64,6 +64,7 @@ def _find_instructions(data: dict[str, Any]) -> list[dict]:
         ["data", "user", "result", "timeline", "timeline", "instructions"],
         ["data", "bookmark_timeline_v2", "timeline", "instructions"],
         ["data", "bookmark_timeline", "timeline", "instructions"],
+        ["data", "search_by_raw_query", "bookmarks_search_timeline", "timeline", "instructions"],
         ["data", "list", "tweets_timeline", "timeline", "instructions"],
         ["data", "threaded_conversation_with_injections_v2", "instructions"],
         ["data", "tweetResult", "result"],
@@ -335,7 +336,7 @@ def get_bookmarks(
     variables: dict[str, Any] = {
         "count": count,
         "includePromotedContent": False,
-        "search_query": "",
+        "rawQuery": "a OR e OR i OR o OR u OR t OR s OR n OR r OR l",
     }
     if cursor:
         variables["cursor"] = cursor

@@ -175,6 +175,20 @@ class XClient:
                         "GraphQL endpoint not found (HTTP 404) — operation IDs may be stale",
                         status_code=404,
                     )
+                elif response.status_code == 422:
+                    body = response.text[:1000]
+                    logger.error(
+                        "HTTP 422 from %s — response body: %s",
+                        url,
+                        body,
+                    )
+                    raise APIError(
+                        f"API error: HTTP 422 (Unprocessable Entity) — "
+                        f"required variables may be missing or invalid. "
+                        f"Response: {body}",
+                        status_code=422,
+                        response_data=body,
+                    )
                 else:
                     raise APIError(
                         f"API error: HTTP {response.status_code}",
@@ -250,6 +264,20 @@ class XClient:
                     f"even after cache refresh — X.com may have removed this operation",
                     status_code=404,
                 )
+            except APIError as e:
+                if e.status_code == 422 and attempt == 0:
+                    logger.warning(
+                        "HTTP 422 for '%s' — variables or query ID may be stale, "
+                        "invalidating cache and retrying with fresh IDs. "
+                        "Response: %s",
+                        operation,
+                        e.response_data,
+                    )
+                    invalidate_cache()
+                    if features is None:
+                        resolved_features = get_op_features(operation)
+                    continue
+                raise
         raise APIError(f"Unreachable: _graphql_request retry loop for '{operation}'")
 
     def graphql_get(

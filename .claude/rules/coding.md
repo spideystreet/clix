@@ -28,5 +28,7 @@
 - Alias conflicting imports from `core.api` with underscore prefix
 
 ## GraphQL API Gotchas
-- **Always check required variables**: Twitter/X GraphQL endpoints may require variables even when they seem optional. Missing variables cause HTTP 422 (e.g., `BookmarkSearchTimeline` requires `search_query: ""` even to list all bookmarks)
+- **Always check required variables**: Twitter/X GraphQL endpoints may require variables even when they seem optional. Missing variables cause HTTP 422
+- **BookmarkSearchTimeline**: X.com removed the old `Bookmarks` listing endpoint. `BookmarkSearchTimeline` is search-only — `rawQuery: ""` triggers `ERROR_EMPTY_QUERY`. Use a broad catch-all OR query (e.g., common letters) to fetch all bookmarks. Response path is `data.search_by_raw_query.bookmarks_search_timeline.timeline.instructions`
+- **Response paths change**: X.com may change response nesting without notice. Always verify the actual response structure and add new paths to `_find_instructions()` in `api.py`
 - When adding new endpoints, verify the full variable schema from the extracted operations — don't assume optional fields are truly optional
