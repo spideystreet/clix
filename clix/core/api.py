@@ -643,3 +643,19 @@ def unfollow_user(client: XClient, user_id: str) -> dict[str, Any]:
             "include_profile_interstitial_type": "1",
         },
     )
+
+
+def block_user(client: XClient, user_id: str) -> dict[str, Any]:
+    """Block a user by their user ID."""
+    return client.rest_post(
+        "https://x.com/i/api/1.1/blocks/create.json",
+        data={"user_id": user_id},
+    )
+
+
+def unblock_user(client: XClient, user_id: str) -> dict[str, Any]:
+    """Unblock a user by their user ID."""
+    return client.rest_post(
+        "https://x.com/i/api/1.1/blocks/destroy.json",
+        data={"user_id": user_id},
+    )

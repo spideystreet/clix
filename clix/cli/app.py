@@ -556,6 +556,50 @@ def unfollow_cmd(
         print_success(f"Unfollowed @{handle}")
 
 
+@app.command("block")
+def block(
+    handle: Annotated[str, typer.Argument(help="User handle to block (without @)")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """Block a user."""
+    from clix.core.api import block_user, get_user_by_handle
+
+    with get_client(account) as client:
+        user = get_user_by_handle(client, handle)
+        if user is None:
+            print_error(f"User @{handle} not found")
+            raise typer.Exit(EXIT_ERROR)
+        result = block_user(client, user.id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Blocked @{handle}")
+
+
+@app.command("unblock")
+def unblock(
+    handle: Annotated[str, typer.Argument(help="User handle to unblock (without @)")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """Unblock a user."""
+    from clix.core.api import get_user_by_handle, unblock_user
+
+    with get_client(account) as client:
+        user = get_user_by_handle(client, handle)
+        if user is None:
+            print_error(f"User @{handle} not found")
+            raise typer.Exit(EXIT_ERROR)
+        result = unblock_user(client, user.id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Unblocked @{handle}")
+
+
 @app.command("delete")
 def delete(
     ctx: typer.Context,
