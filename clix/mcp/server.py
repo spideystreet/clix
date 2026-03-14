@@ -19,6 +19,9 @@ from clix.core.api import (
     delete_tweet as _delete_tweet,
 )
 from clix.core.api import (
+    download_tweet_media as _download_tweet_media,
+)
+from clix.core.api import (
     follow_user as _follow_user,
 )
 from clix.core.api import (
@@ -449,6 +452,27 @@ def unblock(handle: str) -> str:
                 return json.dumps({"error": "User not found", "type": "NotFoundError"})
             result = _unblock_user(client, user_id=user.id)
             return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+# =============================================================================
+# Media Tools
+# =============================================================================
+
+
+@mcp.tool()
+def download_media(tweet_id: str, output_dir: str = ".") -> str:
+    """Download media files (photos, videos, GIFs) from a tweet.
+
+    Args:
+        tweet_id: The tweet ID to download media from.
+        output_dir: Directory to save files to (default: current directory).
+    """
+    try:
+        with XClient() as client:
+            files = _download_tweet_media(client, tweet_id, output_dir=output_dir)
+            return json.dumps({"tweet_id": tweet_id, "files": files, "count": len(files)})
     except Exception as e:
         return _error_response(e)
 

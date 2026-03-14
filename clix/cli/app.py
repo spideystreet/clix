@@ -600,6 +600,30 @@ def unblock(
         print_success(f"Unblocked @{handle}")
 
 
+@app.command("download")
+def download(
+    tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
+    output_dir: Annotated[str, typer.Option("--output-dir", "-o", help="Output directory")] = ".",
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+) -> None:
+    """Download media from a tweet."""
+    from clix.core.api import download_tweet_media
+
+    with get_client(account) as client:
+        files = download_tweet_media(client, tweet_id, output_dir=output_dir)
+
+    if is_json_mode(json_output):
+        output_json({"tweet_id": tweet_id, "files": files, "count": len(files)})
+    else:
+        if not files:
+            print_warning(f"No media found in tweet {tweet_id}")
+        else:
+            print_success(f"Downloaded {len(files)} file(s)")
+            for f in files:
+                console.print(f"  [dim]{f}[/dim]")
+
+
 @app.command("delete")
 def delete(
     ctx: typer.Context,

@@ -659,3 +659,67 @@ def unblock_user(client: XClient, user_id: str) -> dict[str, Any]:
         "https://x.com/i/api/1.1/blocks/destroy.json",
         data={"user_id": user_id},
     )
+
+
+# =============================================================================
+# Media Operations
+# =============================================================================
+
+
+def _ext_from_url(url: str) -> str:
+    """Extract file extension from a media URL."""
+    from urllib.parse import urlparse
+
+    path = urlparse(url).path
+    if "." in path:
+        return path.rsplit(".", 1)[1][:4]
+    return "jpg"
+
+
+def download_tweet_media(client: XClient, tweet_id: str, output_dir: str = ".") -> list[str]:
+    """Download all media from a tweet.
+
+    Fetches the tweet, then downloads each media attachment (photos, videos,
+    GIFs) to the specified output directory.
+
+    Returns list of saved file paths.
+    """
+    from pathlib import Path
+
+    tweets = get_tweet_detail(client, tweet_id)
+
+    # Find the focal tweet
+    focal = None
+    for t in tweets:
+        if t.id == tweet_id:
+            focal = t
+            break
+
+    if focal is None:
+        return []
+
+    if not focal.media:
+        return []
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    downloaded: list[str] = []
+    for i, media in enumerate(focal.media):
+        url = media.url
+        if not url:
+            continue
+
+        # For photos, request original quality
+        if media.type == "photo" and "?" not in url:
+            url = f"{url}?format=jpg&name=orig"
+
+        ext = _ext_from_url(media.url)
+        filename = f"{tweet_id}_{i}.{ext}"
+        filepath = output_path / filename
+
+        response = client.session.get(url)
+        filepath.write_bytes(response.content)
+        downloaded.append(str(filepath))
+
+    return downloaded
