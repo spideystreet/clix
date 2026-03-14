@@ -298,6 +298,40 @@ class XClient:
         """Make a GraphQL POST request (for write operations)."""
         return self._graphql_request("POST", operation, variables, features)
 
+    def rest_post(self, url: str, data: dict[str, str]) -> dict[str, Any]:
+        """Send a REST POST request with form-encoded body."""
+        headers = self._get_headers()
+        headers["content-type"] = "application/x-www-form-urlencoded"
+        cookies = self._get_cookies()
+
+        response = self.session.request(
+            method="POST",
+            url=url,
+            headers=headers,
+            cookies=cookies,
+            data=data,
+            timeout=30,
+        )
+
+        if response.status_code == 200:
+            write_delay()
+            return response.json()
+        elif response.status_code == 401:
+            raise AuthError("Authentication failed. Cookies may be expired.")
+        elif response.status_code == 403:
+            raise APIError(
+                "Forbidden — account may be suspended or action not allowed",
+                status_code=403,
+            )
+        elif response.status_code == 429:
+            raise RateLimitError("Rate limited by Twitter/X", status_code=429)
+        else:
+            raise APIError(
+                f"API error: HTTP {response.status_code}",
+                status_code=response.status_code,
+                response_data=response.text[:500],
+            )
+
     def close(self) -> None:
         """Close the HTTP session."""
         if self._session:

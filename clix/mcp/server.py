@@ -16,6 +16,9 @@ from clix.core.api import (
     delete_tweet as _delete_tweet,
 )
 from clix.core.api import (
+    follow_user as _follow_user,
+)
+from clix.core.api import (
     get_bookmarks as _get_bookmarks,
 )
 from clix.core.api import (
@@ -32,6 +35,9 @@ from clix.core.api import (
 )
 from clix.core.api import (
     unbookmark_tweet as _unbookmark_tweet,
+)
+from clix.core.api import (
+    unfollow_user as _unfollow_user,
 )
 from clix.core.api import (
     unlike_tweet as _unlike_tweet,
@@ -277,6 +283,42 @@ def unbookmark(id: str) -> str:
     try:
         with XClient() as client:
             result = _unbookmark_tweet(client, tweet_id=id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def follow(handle: str) -> str:
+    """Follow a user by handle.
+
+    Args:
+        handle: The user's screen name (without @).
+    """
+    try:
+        with XClient() as client:
+            user = get_user_by_handle(client, handle=handle.lstrip("@"))
+            if user is None:
+                return json.dumps({"error": "User not found", "type": "NotFoundError"})
+            result = _follow_user(client, user_id=user.id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def unfollow(handle: str) -> str:
+    """Unfollow a user by handle.
+
+    Args:
+        handle: The user's screen name (without @).
+    """
+    try:
+        with XClient() as client:
+            user = get_user_by_handle(client, handle=handle.lstrip("@"))
+            if user is None:
+                return json.dumps({"error": "User not found", "type": "NotFoundError"})
+            result = _unfollow_user(client, user_id=user.id)
             return _serialize(result)
     except Exception as e:
         return _error_response(e)

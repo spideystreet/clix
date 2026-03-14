@@ -431,3 +431,25 @@ def bookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:
 def unbookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:
     """Remove a bookmark."""
     return client.graphql_post("DeleteBookmark", {"tweet_id": tweet_id})
+
+
+def follow_user(client: XClient, user_id: str) -> dict[str, Any]:
+    """Follow a user by ID."""
+    return client.rest_post(
+        "https://x.com/i/api/1.1/friendships/create.json",
+        data={
+            "user_id": user_id,
+            "include_profile_interstitial_type": "1",
+        },
+    )
+
+
+def unfollow_user(client: XClient, user_id: str) -> dict[str, Any]:
+    """Unfollow a user by ID."""
+    return client.rest_post(
+        "https://x.com/i/api/1.1/friendships/destroy.json",
+        data={
+            "user_id": user_id,
+            "include_profile_interstitial_type": "1",
+        },
+    )

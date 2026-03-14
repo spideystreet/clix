@@ -326,6 +326,58 @@ def unbm(
         print_success(f"Unbookmarked tweet {tweet_id}")
 
 
+@app.command("follow")
+def follow_cmd(
+    handle: Annotated[str, typer.Argument(help="User handle (without @)")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """Follow a user by handle."""
+    from clix.core.api import follow_user, get_user_by_handle
+
+    with get_client(account) as client:
+        user = get_user_by_handle(client, handle.lstrip("@"))
+        if user is None:
+            if is_json_mode(json_output):
+                output_json({"error": f"User @{handle} not found"})
+            else:
+                print_error(f"User @{handle} not found")
+            raise typer.Exit(EXIT_ERROR)
+
+        result = follow_user(client, user.id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Followed @{handle}")
+
+
+@app.command("unfollow")
+def unfollow_cmd(
+    handle: Annotated[str, typer.Argument(help="User handle (without @)")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """Unfollow a user by handle."""
+    from clix.core.api import get_user_by_handle, unfollow_user
+
+    with get_client(account) as client:
+        user = get_user_by_handle(client, handle.lstrip("@"))
+        if user is None:
+            if is_json_mode(json_output):
+                output_json({"error": f"User @{handle} not found"})
+            else:
+                print_error(f"User @{handle} not found")
+            raise typer.Exit(EXIT_ERROR)
+
+        result = unfollow_user(client, user.id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Unfollowed @{handle}")
+
+
 @app.command("delete")
 def delete(
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID to delete")],
