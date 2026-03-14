@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.cli.helpers import get_client, is_compact_mode, is_json_mode, output_compact, output_json
 from clix.core.auth import (
     AuthCredentials,
     AuthError,
@@ -39,10 +39,14 @@ def main(
     full_text: Annotated[
         bool, typer.Option("--full-text", help="Show full tweet text without truncation")
     ] = False,
+    compact: Annotated[
+        bool, typer.Option("--compact", "-c", help="Compact JSON output for AI agents")
+    ] = False,
 ) -> None:
     """Twitter/X CLI — browse, search, and post from your terminal."""
     ctx.ensure_object(dict)
     ctx.obj["full_text"] = full_text
+    ctx.obj["compact"] = compact
 
 
 # =============================================================================
@@ -226,10 +230,16 @@ def bookmarks_cmd(
     from clix.core.api import get_bookmarks
     from clix.display.formatter import format_tweet_list
 
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
     with get_client(account) as client:
         response = get_bookmarks(client, count)
 
-    if is_json_mode(json_output):
+    if compact:
+        output_compact(response.tweets)
+    elif is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
     else:
         full_text = ctx.obj.get("full_text", False) if ctx.obj else False
@@ -243,6 +253,7 @@ def bookmarks_cmd(
 
 @app.command("post")
 def post(
+    ctx: typer.Context,
     text: Annotated[str, typer.Argument(help="Tweet text")],
     reply_to: Annotated[str | None, typer.Option("--reply-to", help="Tweet ID to reply to")] = None,
     quote: Annotated[str | None, typer.Option("--quote", help="Tweet URL to quote")] = None,
@@ -252,10 +263,14 @@ def post(
     """Post a new tweet."""
     from clix.core.api import create_tweet
 
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
     with get_client(account) as client:
         result = create_tweet(client, text, reply_to_id=reply_to, quote_tweet_url=quote)
 
-    if is_json_mode(json_output):
+    if compact or is_json_mode(json_output):
         output_json(result)
     else:
         print_success("Tweet posted!")
@@ -263,6 +278,7 @@ def post(
 
 @app.command("like")
 def like(
+    ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
@@ -270,10 +286,14 @@ def like(
     """Like a tweet."""
     from clix.core.api import like_tweet
 
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
     with get_client(account) as client:
         result = like_tweet(client, tweet_id)
 
-    if is_json_mode(json_output):
+    if compact or is_json_mode(json_output):
         output_json(result)
     else:
         print_success(f"Liked tweet {tweet_id}")
@@ -281,6 +301,7 @@ def like(
 
 @app.command("unlike")
 def unlike(
+    ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
@@ -288,10 +309,14 @@ def unlike(
     """Unlike a tweet."""
     from clix.core.api import unlike_tweet
 
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
     with get_client(account) as client:
         result = unlike_tweet(client, tweet_id)
 
-    if is_json_mode(json_output):
+    if compact or is_json_mode(json_output):
         output_json(result)
     else:
         print_success(f"Unliked tweet {tweet_id}")
@@ -299,6 +324,7 @@ def unlike(
 
 @app.command("retweet")
 def rt(
+    ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
@@ -306,10 +332,14 @@ def rt(
     """Retweet a tweet."""
     from clix.core.api import retweet
 
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
     with get_client(account) as client:
         result = retweet(client, tweet_id)
 
-    if is_json_mode(json_output):
+    if compact or is_json_mode(json_output):
         output_json(result)
     else:
         print_success(f"Retweeted {tweet_id}")
@@ -317,6 +347,7 @@ def rt(
 
 @app.command("unretweet")
 def unrt(
+    ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
@@ -324,10 +355,14 @@ def unrt(
     """Undo a retweet."""
     from clix.core.api import unretweet
 
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
     with get_client(account) as client:
         result = unretweet(client, tweet_id)
 
-    if is_json_mode(json_output):
+    if compact or is_json_mode(json_output):
         output_json(result)
     else:
         print_success(f"Unretweeted {tweet_id}")
@@ -335,6 +370,7 @@ def unrt(
 
 @app.command("bookmark")
 def bm(
+    ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
@@ -342,10 +378,14 @@ def bm(
     """Bookmark a tweet."""
     from clix.core.api import bookmark_tweet
 
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
     with get_client(account) as client:
         result = bookmark_tweet(client, tweet_id)
 
-    if is_json_mode(json_output):
+    if compact or is_json_mode(json_output):
         output_json(result)
     else:
         print_success(f"Bookmarked tweet {tweet_id}")
@@ -353,6 +393,7 @@ def bm(
 
 @app.command("unbookmark")
 def unbm(
+    ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
@@ -360,10 +401,14 @@ def unbm(
     """Remove a bookmark."""
     from clix.core.api import unbookmark_tweet
 
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
     with get_client(account) as client:
         result = unbookmark_tweet(client, tweet_id)
 
-    if is_json_mode(json_output):
+    if compact or is_json_mode(json_output):
         output_json(result)
     else:
         print_success(f"Unbookmarked tweet {tweet_id}")
@@ -423,6 +468,7 @@ def unfollow_cmd(
 
 @app.command("delete")
 def delete(
+    ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID to delete")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
@@ -430,6 +476,10 @@ def delete(
 ):
     """Delete a tweet."""
     from clix.core.api import delete_tweet
+
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
 
     if not force and sys.stdout.isatty():
         confirm = typer.confirm(f"Delete tweet {tweet_id}?")
@@ -439,7 +489,7 @@ def delete(
     with get_client(account) as client:
         result = delete_tweet(client, tweet_id)
 
-    if is_json_mode(json_output):
+    if compact or is_json_mode(json_output):
         output_json(result)
     else:
         print_success(f"Deleted tweet {tweet_id}")

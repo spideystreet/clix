@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -21,6 +22,20 @@ def is_json_mode(json_flag: bool) -> bool:
     return json_flag or not sys.stdout.isatty()
 
 
+def get_output_mode(json_flag: bool = False, compact_flag: bool = False) -> str:
+    """Return output mode: 'rich', 'json', or 'compact'."""
+    if compact_flag:
+        return "compact"
+    if json_flag or not sys.stdout.isatty():
+        return "json"
+    return "rich"
+
+
+def is_compact_mode(ctx: typer.Context) -> bool:
+    """Check if compact mode is enabled via the global --compact flag."""
+    return bool((ctx.obj or {}).get("compact", False))
+
+
 def output_json(data: object) -> None:
     """Print JSON output."""
     if hasattr(data, "model_dump"):
@@ -30,6 +45,50 @@ def output_json(data: object) -> None:
             item.model_dump(mode="json") if hasattr(item, "model_dump") else item for item in data
         ]
     print(json.dumps(data, indent=2, default=str))
+
+
+def _compact_tweet(tweet: Any) -> dict[str, Any]:
+    """Produce a minimal dict for a single tweet."""
+    created = ""
+    if tweet.created_at:
+        created = tweet.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {
+        "id": tweet.id,
+        "author": f"@{tweet.author_handle}",
+        "text": tweet.text[:140],
+        "likes": tweet.engagement.likes,
+        "rts": tweet.engagement.retweets,
+        "time": created,
+    }
+
+
+def _compact_user(user: Any) -> dict[str, Any]:
+    """Produce a minimal dict for a single user."""
+    return {
+        "handle": f"@{user.handle}",
+        "name": user.name,
+        "followers": user.followers_count,
+        "bio": user.bio[:120] if user.bio else "",
+    }
+
+
+def output_compact(data: list[Any] | Any, *, kind: str = "tweets") -> None:
+    """Minimal JSON output optimized for LLM token efficiency.
+
+    Args:
+        data: A list of tweets/users or a single user/tweet object.
+        kind: 'tweets', 'users', or 'user' to select the compact format.
+    """
+    if kind == "user":
+        print(json.dumps(_compact_user(data), separators=(",", ":")))
+        return
+
+    if kind == "users":
+        items = [_compact_user(u) for u in data]
+    else:
+        items = [_compact_tweet(t) for t in data]
+
+    print(json.dumps(items, separators=(",", ":")))
 
 
 def get_client(account: str | None = None, proxy: str | None = None):

@@ -6,7 +6,13 @@ from typing import Annotated
 
 import typer
 
-from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.cli.helpers import (
+    get_client,
+    is_compact_mode,
+    is_json_mode,
+    output_compact,
+    output_json,
+)
 from clix.display.formatter import (
     console,
     format_tweet_list,
@@ -40,7 +46,13 @@ def user_profile(
         print_error(f"User @{handle} not found")
         raise typer.Exit(1)
 
-    if is_json_mode(json_output):
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
+    if compact:
+        output_compact(user, kind="user")
+    elif is_json_mode(json_output):
         output_json(user.to_json_dict())
     else:
         console.print(format_user(user))
@@ -68,7 +80,13 @@ def user_tweets(
 
         response = get_user_tweets(client, user.id, count, include_replies=replies)
 
-    if is_json_mode(json_output):
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
+    if compact:
+        output_compact(response.tweets)
+    elif is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
     else:
         full_text = ctx.obj.get("full_text", False) if ctx.obj else False
@@ -96,7 +114,13 @@ def user_likes(
 
         response = get_user_likes(client, user.id, count)
 
-    if is_json_mode(json_output):
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
+    if compact:
+        output_compact(response.tweets)
+    elif is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
     else:
         full_text = ctx.obj.get("full_text", False) if ctx.obj else False
@@ -105,6 +129,7 @@ def user_likes(
 
 @user_app.command("followers")
 def user_followers(
+    ctx: typer.Context,
     handle: Annotated[str, typer.Argument(help="Twitter handle")],
     count: Annotated[int, typer.Option("--count", "-n", help="Number of users")] = 20,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
@@ -123,7 +148,13 @@ def user_followers(
 
         users, _ = get_followers(client, user.id, count)
 
-    if is_json_mode(json_output):
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
+    if compact:
+        output_compact(users, kind="users")
+    elif is_json_mode(json_output):
         output_json([u.to_json_dict() for u in users])
     else:
         format_user_list(users)
@@ -131,6 +162,7 @@ def user_followers(
 
 @user_app.command("following")
 def user_following(
+    ctx: typer.Context,
     handle: Annotated[str, typer.Argument(help="Twitter handle")],
     count: Annotated[int, typer.Option("--count", "-n", help="Number of users")] = 20,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
@@ -149,7 +181,13 @@ def user_following(
 
         users, _ = get_following(client, user.id, count)
 
-    if is_json_mode(json_output):
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
+    if compact:
+        output_compact(users, kind="users")
+    elif is_json_mode(json_output):
         output_json([u.to_json_dict() for u in users])
     else:
         format_user_list(users)

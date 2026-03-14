@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.cli.helpers import get_client, is_compact_mode, is_json_mode, output_compact, output_json
 from clix.display.formatter import format_tweet_list
 
 feed_app = typer.Typer(no_args_is_help=False, invoke_without_command=True)
@@ -49,7 +49,13 @@ def feed(
     if filter_mode:
         all_tweets = filter_tweets(all_tweets, mode=filter_mode, top_n=top_n, threshold=threshold)
 
-    if is_json_mode(json_output):
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
+    if compact:
+        output_compact(all_tweets)
+    elif is_json_mode(json_output):
         output_json([t.to_json_dict() for t in all_tweets])
     else:
         full_text = ctx.obj.get("full_text", False) if ctx.obj else False
