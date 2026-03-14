@@ -62,7 +62,13 @@ class XClient:
     ):
         self._credentials = credentials
         self._account = account
-        self._proxy = proxy or os.environ.get("X_PROXY") or os.environ.get("TWITTER_PROXY")
+        self._proxy = (
+            proxy
+            or os.environ.get("CLIX_PROXY")
+            or os.environ.get("X_PROXY")
+            or os.environ.get("TWITTER_PROXY")
+            or ""
+        )
         self._session: curl_requests.Session | None = None
 
     @property
