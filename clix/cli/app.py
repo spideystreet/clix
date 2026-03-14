@@ -32,6 +32,22 @@ app = typer.Typer(
 console = Console()
 
 
+def _resolve_user_target(client, target: str) -> tuple[str, str]:
+    """Resolve a follow target from @handle or raw user ID."""
+    from clix.core.api import get_user_by_handle
+
+    normalized = target.lstrip("@")
+    if normalized.isdigit():
+        return normalized, normalized
+
+    user = get_user_by_handle(client, normalized)
+    if not user:
+        print_error(f"User @{normalized} not found")
+        raise typer.Exit(EXIT_ERROR)
+
+    return user.id, f"@{user.handle}"
+
+
 # =============================================================================
 # Auth commands
 # =============================================================================
@@ -234,6 +250,44 @@ def like(
         output_json(result)
     else:
         print_success(f"Liked tweet {tweet_id}")
+
+
+@app.command("follow")
+def follow(
+    target: Annotated[str, typer.Argument(help="Twitter handle or user ID")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """Follow a user."""
+    from clix.core.api import follow_user
+
+    with get_client(account) as client:
+        user_id, display_target = _resolve_user_target(client, target)
+        result = follow_user(client, user_id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Following {display_target}")
+
+
+@app.command("unfollow")
+def unfollow(
+    target: Annotated[str, typer.Argument(help="Twitter handle or user ID")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """Unfollow a user."""
+    from clix.core.api import unfollow_user
+
+    with get_client(account) as client:
+        user_id, display_target = _resolve_user_target(client, target)
+        result = unfollow_user(client, user_id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Unfollowed {display_target}")
 
 
 @app.command("unlike")

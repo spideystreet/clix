@@ -431,3 +431,38 @@ def bookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:
 def unbookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:
     """Remove a bookmark."""
     return client.graphql_post("DeleteBookmark", {"tweet_id": tweet_id})
+
+
+def _friendship_params(user_id: str) -> dict[str, str]:
+    """Build legacy friendship endpoint params expected by the web client."""
+    return {
+        "include_profile_interstitial_type": "1",
+        "include_blocking": "1",
+        "include_blocked_by": "1",
+        "include_followed_by": "1",
+        "include_want_retweets": "1",
+        "include_mute_edge": "1",
+        "include_can_dm": "1",
+        "include_can_media_tag": "1",
+        "include_ext_has_nft_avatar": "1",
+        "skip_status": "1",
+        "user_id": user_id,
+    }
+
+
+def follow_user(client: XClient, user_id: str) -> dict[str, Any]:
+    """Follow a user."""
+    return client.api_post(
+        "1.1/friendships/create.json",
+        params=_friendship_params(user_id),
+        headers={"content-type": "application/x-www-form-urlencoded; charset=UTF-8"},
+    )
+
+
+def unfollow_user(client: XClient, user_id: str) -> dict[str, Any]:
+    """Unfollow a user."""
+    return client.api_post(
+        "1.1/friendships/destroy.json",
+        params=_friendship_params(user_id),
+        headers={"content-type": "application/x-www-form-urlencoded; charset=UTF-8"},
+    )

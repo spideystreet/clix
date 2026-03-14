@@ -38,6 +38,7 @@ clix auth
 | `clix post <text> [--reply-to ID]` | Post a tweet |
 | `clix delete <id>` | Delete a tweet |
 | `clix like <id>` / `clix unlike <id>` | Like / unlike |
+| `clix follow <handle>` / `clix unfollow <handle>` | Follow / unfollow users |
 | `clix retweet <id>` / `clix unretweet <id>` | Retweet / undo |
 | `clix bookmark <id>` / `clix unbookmark <id>` | Bookmark / remove |
 | `clix bookmarks` | List bookmarks |
@@ -90,7 +91,7 @@ Or with explicit auth:
 }
 ```
 
-**14 tools:** `get_feed`, `search`, `get_tweet`, `get_user`, `list_bookmarks`, `post_tweet`, `delete_tweet`, `like`, `unlike`, `retweet`, `unretweet`, `bookmark`, `unbookmark`, `auth_status`
+**16 tools:** `get_feed`, `search`, `get_tweet`, `get_user`, `list_bookmarks`, `post_tweet`, `delete_tweet`, `like`, `unlike`, `follow`, `unfollow`, `retweet`, `unretweet`, `bookmark`, `unbookmark`, `auth_status`
 
 ## Contributing
 

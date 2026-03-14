@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from clix.core.api import _extract_tweets_from_timeline, get_bookmarks
+from clix.core.api import _extract_tweets_from_timeline, follow_user, get_bookmarks, unfollow_user
 
 
 class TestCursorExtraction:
@@ -241,3 +241,35 @@ class TestGetBookmarksCLI:
         result = runner.invoke(app, ["bookmarks", "--json"])
 
         assert result.exit_code == 2
+
+
+class TestFollowActions:
+    """Verify follow and unfollow use the correct REST endpoints."""
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_follow_user_uses_friendships_create(self, mock_client_cls: MagicMock) -> None:
+        """Follow should call the legacy friendships create endpoint."""
+        client = mock_client_cls.return_value
+        client.api_post.return_value = {"following": True}
+
+        result = follow_user(client, "12345")
+
+        assert result == {"following": True}
+        args, kwargs = client.api_post.call_args
+        assert args[0] == "1.1/friendships/create.json"
+        assert kwargs["params"]["user_id"] == "12345"
+        assert kwargs["headers"]["content-type"].startswith("application/x-www-form-urlencoded")
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_unfollow_user_uses_friendships_destroy(self, mock_client_cls: MagicMock) -> None:
+        """Unfollow should call the legacy friendships destroy endpoint."""
+        client = mock_client_cls.return_value
+        client.api_post.return_value = {"following": False}
+
+        result = unfollow_user(client, "12345")
+
+        assert result == {"following": False}
+        args, kwargs = client.api_post.call_args
+        assert args[0] == "1.1/friendships/destroy.json"
+        assert kwargs["params"]["user_id"] == "12345"
+        assert kwargs["headers"]["content-type"].startswith("application/x-www-form-urlencoded")

@@ -133,10 +133,14 @@ class XClient:
         url: str,
         params: dict | None = None,
         json_data: dict | None = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         max_retries: int = 3,
     ) -> dict[str, Any]:
         """Make an authenticated request with retry logic."""
-        headers = self._get_headers()
+        request_headers = self._get_headers()
+        if headers:
+            request_headers.update(headers)
         cookies = self._get_cookies()
 
         last_error: Exception | None = None
@@ -146,10 +150,11 @@ class XClient:
                 response = self.session.request(
                     method=method,
                     url=url,
-                    headers=headers,
+                    headers=request_headers,
                     cookies=cookies,
                     params=params,
                     json=json_data,
+                    data=data,
                     timeout=30,
                 )
 
@@ -297,6 +302,28 @@ class XClient:
     ) -> dict[str, Any]:
         """Make a GraphQL POST request (for write operations)."""
         return self._graphql_request("POST", operation, variables, features)
+
+    def api_post(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Make a non-GraphQL POST request against x.com/i/api."""
+        from clix.core.constants import API_BASE
+
+        result = self._request(
+            "POST",
+            f"{API_BASE.rstrip('/')}/{path.lstrip('/')}",
+            params=params,
+            json_data=json_data,
+            data=data,
+            headers=headers,
+        )
+        write_delay()
+        return result
 
     def close(self) -> None:
         """Close the HTTP session."""

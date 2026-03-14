@@ -45,3 +45,8 @@ class TestCLI:
         result = runner.invoke(app, ["post", "--help"])
         assert result.exit_code == 0
         assert "tweet" in result.stdout.lower()
+
+    def test_follow_help(self):
+        result = runner.invoke(app, ["follow", "--help"])
+        assert result.exit_code == 0
+        assert "follow" in result.stdout.lower()

@@ -19,6 +19,9 @@ from clix.core.api import (
     get_bookmarks as _get_bookmarks,
 )
 from clix.core.api import (
+    follow_user as _follow_user,
+)
+from clix.core.api import (
     get_home_timeline,
     get_tweet_detail,
     get_user_by_handle,
@@ -31,8 +34,12 @@ from clix.core.api import (
     retweet as _retweet,
 )
 from clix.core.api import (
+    unfollow_user as _unfollow_user,
+)
+from clix.core.api import (
     unbookmark_tweet as _unbookmark_tweet,
 )
+from clix.models.user import User
 from clix.core.api import (
     unlike_tweet as _unlike_tweet,
 )
@@ -43,7 +50,7 @@ from clix.core.auth import AuthError, get_credentials
 from clix.core.client import XClient
 
 mcp = FastMCP(
-    "clix", instructions="Twitter/X CLI tool — read and write tweets, search, manage bookmarks."
+    "clix", instructions="Twitter/X CLI tool — read and write tweets, search, manage follows and bookmarks."
 )
 
 
@@ -155,6 +162,14 @@ def list_bookmarks(count: int = 20) -> str:
         return _error_response(e)
 
 
+def _resolve_user(handle: str, client: XClient) -> User:
+    """Resolve a handle to a User model for follow actions."""
+    user = get_user_by_handle(client, handle=handle.lstrip("@"))
+    if user is None:
+        raise ValueError("User not found")
+    return user
+
+
 # =============================================================================
 # Write Tools
 # =============================================================================
@@ -202,6 +217,38 @@ def like(id: str) -> str:
     try:
         with XClient() as client:
             result = _like_tweet(client, tweet_id=id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def follow(handle: str) -> str:
+    """Follow a user by handle.
+
+    Args:
+        handle: The user's screen name, with or without @.
+    """
+    try:
+        with XClient() as client:
+            user = _resolve_user(handle, client)
+            result = _follow_user(client, user_id=user.id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def unfollow(handle: str) -> str:
+    """Unfollow a user by handle.
+
+    Args:
+        handle: The user's screen name, with or without @.
+    """
+    try:
+        with XClient() as client:
+            user = _resolve_user(handle, client)
+            result = _unfollow_user(client, user_id=user.id)
             return _serialize(result)
     except Exception as e:
         return _error_response(e)
