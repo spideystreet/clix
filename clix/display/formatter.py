@@ -11,6 +11,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
+from clix.models.dm import DMConversation, DMMessage
 from clix.models.tweet import Tweet, TweetEngagement
 from clix.models.user import User
 
@@ -340,6 +341,44 @@ def format_lists(lists: list[dict]) -> None:
     console.print(table)
 
 
+def format_dm_inbox(conversations: list[DMConversation]) -> None:
+    """Display DM inbox as a table."""
+    if not conversations:
+        console.print("[dim]No conversations found.[/dim]")
+        return
+
+    table = Table(title="DM Inbox", border_style="dim")
+    table.add_column("Participants", style="cyan")
+    table.add_column("Last Message", style="white", max_width=60)
+    table.add_column("Time", style="dim")
+
+    for conv in conversations:
+        handles = ", ".join(
+            f"@{p.get('handle', '?')}" for p in conv.participants if p.get("handle")
+        )
+        if not handles:
+            handles = conv.id
+
+        msg_preview = conv.last_message[:60]
+        if len(conv.last_message) > 60:
+            msg_preview += "..."
+
+        # Convert epoch ms to relative time
+        time_str = ""
+        if conv.last_message_time:
+            try:
+                ts = int(conv.last_message_time) / 1000
+                dt = datetime.fromtimestamp(ts, tz=UTC)
+                time_str = _relative_time(dt)
+            except (ValueError, OSError):
+                time_str = conv.last_message_time
+
+        style = "bold" if conv.unread else ""
+        table.add_row(handles, msg_preview, time_str, style=style)
+
+    console.print(table)
+
+
 def format_trends(trends: list[dict]) -> None:
     """Print trending topics as a rich Table."""
     if not trends:
@@ -359,6 +398,32 @@ def format_trends(trends: list[dict]) -> None:
         table.add_row(str(i), trend["name"], count_str, context)
 
     console.print(table)
+
+
+def format_dm_messages(messages: list[DMMessage]) -> None:
+    """Display DM messages in chronological order."""
+    if not messages:
+        console.print("[dim]No messages found.[/dim]")
+        return
+
+    for msg in messages:
+        # Convert epoch ms to relative time
+        time_str = ""
+        if msg.created_at:
+            try:
+                ts = int(msg.created_at) / 1000
+                dt = datetime.fromtimestamp(ts, tz=UTC)
+                time_str = _relative_time(dt)
+            except (ValueError, OSError):
+                time_str = msg.created_at
+
+        sender = msg.sender_name or msg.sender_id
+        header = Text()
+        header.append(sender, style="bold cyan")
+        header.append(f" {time_str}", style="dim")
+        console.print(header)
+        console.print(f"  {msg.text}")
+        console.print()
 
 
 def print_success(message: str) -> None:

@@ -40,6 +40,9 @@ from clix.core.api import (
     get_bookmarks as _get_bookmarks,
 )
 from clix.core.api import (
+    get_dm_inbox as _get_dm_inbox,
+)
+from clix.core.api import (
     get_home_timeline,
     get_list_tweets,
     get_tweet_detail,
@@ -67,6 +70,9 @@ from clix.core.api import (
 )
 from clix.core.api import (
     retweet as _retweet,
+)
+from clix.core.api import (
+    send_dm as _send_dm,
 )
 from clix.core.api import (
     unblock_user as _unblock_user,
@@ -669,6 +675,44 @@ def unpin_list(list_id: str) -> str:
     try:
         with XClient() as client:
             result = _unpin_list(client, list_id=list_id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+# =============================================================================
+# DM Tools
+# =============================================================================
+
+
+@mcp.tool()
+def dm_inbox() -> str:
+    """Fetch DM inbox conversations.
+
+    Returns a list of conversations with participants, last message, and time.
+    """
+    try:
+        with XClient() as client:
+            conversations = _get_dm_inbox(client)
+            return json.dumps([c.model_dump() for c in conversations], default=str)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def dm_send(handle: str, text: str) -> str:
+    """Send a direct message to a user.
+
+    Args:
+        handle: The user's screen name (without @).
+        text: The message text to send.
+    """
+    try:
+        with XClient() as client:
+            user = get_user_by_handle(client, handle=handle)
+            if user is None:
+                return json.dumps({"error": "User not found", "type": "NotFoundError"})
+            result = _send_dm(client, user_id=user.id, text=text)
             return _serialize(result)
     except Exception as e:
         return _error_response(e)

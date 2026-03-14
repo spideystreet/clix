@@ -929,6 +929,7 @@ def mcp_server() -> None:
 
 def _register_subcommands() -> None:
     """Register subcommand groups."""
+    from clix.cli.dm import dm_app
     from clix.cli.feed import feed_app
     from clix.cli.lists import lists_app
     from clix.cli.search import search_app
@@ -940,6 +941,7 @@ def _register_subcommands() -> None:
     app.add_typer(search_app, name="search", help="Search tweets")
     app.add_typer(user_app, name="user", help="View user profiles")
     app.add_typer(lists_app, name="lists", help="Manage lists")
+    app.add_typer(dm_app, name="dm", help="Direct messages")
 
 
 _register_subcommands()

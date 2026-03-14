@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from clix.core.client import APIError, XClient
+from clix.models.dm import DMConversation
 from clix.models.tweet import TimelineResponse, Tweet
 from clix.models.user import User
 
@@ -943,3 +944,120 @@ def _parse_tweet_volume(text: str | None) -> int | None:
             value *= 1_000_000
 
     return int(value)
+
+
+# =============================================================================
+# Direct Messages
+# =============================================================================
+
+
+def _parse_dm_inbox(data: dict[str, Any]) -> list[DMConversation]:
+    """Parse DM inbox response into conversation summaries."""
+    state = data.get("inbox_initial_state", {})
+    conversations_raw = state.get("conversations", {})
+    entries = state.get("entries", [])
+    users = state.get("users", {})
+
+    # Index latest message per conversation from entries
+    latest_messages: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        msg = entry.get("message", {})
+        msg_data = msg.get("message_data", {})
+        conv_id = msg.get("conversation_id", entry.get("conversation_id", ""))
+        if conv_id and conv_id not in latest_messages:
+            latest_messages[conv_id] = {
+                "text": msg_data.get("text", ""),
+                "time": msg_data.get("time", msg.get("time", "")),
+                "sender_id": msg_data.get("sender_id", msg.get("sender_id", "")),
+            }
+
+    conversations: list[DMConversation] = []
+    for conv_id, conv in conversations_raw.items():
+        conv_type = conv.get("type", "ONE_TO_ONE")
+        is_group = conv_type.upper() == "GROUP_DM"
+
+        # Build participant list
+        participant_ids = [p.get("user_id", "") for p in conv.get("participants", [])]
+        participants = []
+        for uid in participant_ids:
+            user_info = users.get(uid, {})
+            participants.append(
+                {
+                    "id": uid,
+                    "name": user_info.get("name", ""),
+                    "handle": user_info.get("screen_name", ""),
+                }
+            )
+
+        # Get last message info
+        last_msg = latest_messages.get(conv_id, {})
+
+        conversations.append(
+            DMConversation(
+                id=conv_id,
+                type="group" if is_group else "one_to_one",
+                participants=participants,
+                last_message=last_msg.get("text", ""),
+                last_message_time=last_msg.get("time", ""),
+                unread=conv.get("read_only", False) is False
+                and conv.get("notifications_disabled", False) is False
+                and int(conv.get("last_read_event_id", "0")) < int(conv.get("sort_event_id", "0")),
+            )
+        )
+
+    return conversations
+
+
+def get_dm_inbox(client: XClient) -> list[DMConversation]:
+    """Get DM inbox conversations."""
+    from clix.core.constants import API_BASE
+
+    url = f"{API_BASE}/1.1/dm/inbox_initial_state.json"
+    params = {
+        "nsfw_filtering_enabled": "false",
+        "filter_low_quality": "false",
+        "include_quality": "all",
+        "include_profile_interstitial_type": "1",
+        "include_blocking": "1",
+        "include_blocked_by": "1",
+        "dm_secret_conversations_enabled": "false",
+        "krs_registration_enabled": "true",
+        "cards_platform": "Web-12",
+        "include_cards": "1",
+        "include_ext_alt_text": "true",
+        "include_quote_count": "true",
+        "include_reply_count": "1",
+        "tweet_mode": "extended",
+        "include_ext_collab_control": "true",
+        "include_ext_is_blue_verified": "1",
+        "include_ext_has_nft_avatar": "1",
+        "include_ext_vibe_tag": "1",
+        "include_ext_sensitive_media_warning": "true",
+        "include_ext_media_color": "true",
+        "include_ext_media_availability": "true",
+        "include_ext_has_birdwatch_notes": "1",
+    }
+
+    data = client._request("GET", url, params=params)
+    return _parse_dm_inbox(data)
+
+
+def send_dm(client: XClient, user_id: str, text: str) -> dict[str, Any]:
+    """Send a DM to a user."""
+    import uuid
+
+    variables = {
+        "message": {"text": {"text": text}},
+        "requestId": str(uuid.uuid4()),
+        "target": {"participant_ids": [user_id]},
+    }
+    return client.graphql_post("useSendMessageMutation", variables)
+
+
+def delete_dm(client: XClient, conversation_id: str, message_id: str) -> dict[str, Any]:
+    """Delete a DM message."""
+    variables = {
+        "conversation_id": conversation_id,
+        "message_id": message_id,
+    }
+    return client.graphql_post("DMMessageDeleteMutation", variables)
