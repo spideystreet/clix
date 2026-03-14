@@ -20,8 +20,10 @@ from clix.core.api import (
 )
 from clix.core.api import (
     get_home_timeline,
+    get_list_tweets,
     get_tweet_detail,
     get_user_by_handle,
+    get_user_lists,
     search_tweets,
 )
 from clix.core.api import (
@@ -150,6 +152,36 @@ def list_bookmarks(count: int = 20) -> str:
     try:
         with XClient() as client:
             response = _get_bookmarks(client, count=count)
+            return _serialize(response)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_lists() -> str:
+    """Fetch the authenticated user's lists.
+
+    Returns list metadata including id, name, member count, and description.
+    """
+    try:
+        with XClient() as client:
+            lists = get_user_lists(client)
+            return json.dumps(lists, default=str)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_list_timeline(list_id: str, count: int = 20) -> str:
+    """Fetch tweets from a list.
+
+    Args:
+        list_id: The list ID.
+        count: Number of tweets to fetch (max 100).
+    """
+    try:
+        with XClient() as client:
+            response = get_list_tweets(client, list_id=list_id, count=count)
             return _serialize(response)
     except Exception as e:
         return _error_response(e)

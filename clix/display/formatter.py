@@ -262,6 +262,32 @@ def format_user_list(users: list[User]) -> None:
     console.print(table)
 
 
+def format_lists(lists: list[dict]) -> None:
+    """Print a list of Twitter/X lists in a table."""
+    if not lists:
+        console.print("[dim]No lists found.[/dim]")
+        return
+
+    table = Table(title="Your Lists", border_style="dim")
+    table.add_column("ID", style="dim")
+    table.add_column("Name", style="cyan bold")
+    table.add_column("Members", style="white", justify="right")
+    table.add_column("Description", style="dim", max_width=50)
+
+    for lst in lists:
+        description = lst.get("description", "") or ""
+        if len(description) > 50:
+            description = description[:50] + "..."
+        table.add_row(
+            lst.get("id", ""),
+            lst.get("name", ""),
+            _format_number(lst.get("member_count", 0)),
+            description,
+        )
+
+    console.print(table)
+
+
 def print_success(message: str) -> None:
     """Print a success message."""
     console.print(f"[green]\u2713[/green] {message}")

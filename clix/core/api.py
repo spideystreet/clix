@@ -363,6 +363,44 @@ def get_list_tweets(
     return _extract_tweets_from_timeline(data)
 
 
+def get_user_lists(client: XClient) -> list[dict[str, Any]]:
+    """Fetch the authenticated user's lists."""
+    variables: dict[str, Any] = {"count": 100}
+
+    data = client.graphql_get("ListsManagementPageTimeline", variables)
+
+    lists: list[dict[str, Any]] = []
+    instructions = (
+        data.get("data", {})
+        .get("viewer", {})
+        .get("list_management_timeline", {})
+        .get("timeline", {})
+        .get("instructions", [])
+    )
+
+    for instruction in instructions:
+        for entry in instruction.get("entries", []):
+            content = entry.get("content", {})
+            item_content = content.get("itemContent", {})
+            list_result = item_content.get("list", {})
+
+            if not list_result:
+                continue
+
+            list_info: dict[str, Any] = {
+                "id": list_result.get("id_str", ""),
+                "name": list_result.get("name", ""),
+                "description": list_result.get("description", ""),
+                "member_count": list_result.get("member_count", 0),
+                "subscriber_count": list_result.get("subscriber_count", 0),
+                "mode": list_result.get("mode", ""),
+            }
+            if list_info["id"]:
+                lists.append(list_info)
+
+    return lists
+
+
 # =============================================================================
 # Write Operations
 # =============================================================================

@@ -12,13 +12,15 @@ class TestMcpToolRegistration:
     """Verify all MCP tools are registered."""
 
     def test_all_tools_registered(self):
-        """All 14 MCP tools should be registered."""
+        """All 16 MCP tools should be registered."""
         expected = {
             "get_feed",
             "search",
             "get_tweet",
             "get_user",
             "list_bookmarks",
+            "get_lists",
+            "get_list_timeline",
             "post_tweet",
             "delete_tweet",
             "like",
@@ -32,12 +34,20 @@ class TestMcpToolRegistration:
         assert _tool_names() == expected
 
     def test_tool_count(self):
-        """Exactly 14 tools should be registered."""
-        assert len(_tool_names()) == 14
+        """Exactly 16 tools should be registered."""
+        assert len(_tool_names()) == 16
 
     def test_read_tools_present(self):
         """Read tools should be registered."""
-        read_tools = {"get_feed", "search", "get_tweet", "get_user", "list_bookmarks"}
+        read_tools = {
+            "get_feed",
+            "search",
+            "get_tweet",
+            "get_user",
+            "list_bookmarks",
+            "get_lists",
+            "get_list_timeline",
+        }
         assert read_tools.issubset(_tool_names())
 
     def test_write_tools_present(self):
