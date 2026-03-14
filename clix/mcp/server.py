@@ -42,6 +42,9 @@ from clix.core.api import (
     get_trending as _get_trending,
 )
 from clix.core.api import (
+    get_tweets_by_ids as _get_tweets_by_ids,
+)
+from clix.core.api import (
     like_tweet as _like_tweet,
 )
 from clix.core.api import (
@@ -250,6 +253,41 @@ def get_trending() -> str:
         with XClient() as client:
             trends = _get_trending(client)
             return json.dumps(trends, default=str)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_tweets_batch(tweet_ids: list[str]) -> str:
+    """Batch fetch multiple tweets by their IDs.
+
+    Args:
+        tweet_ids: List of tweet IDs to fetch.
+    """
+    try:
+        with XClient() as client:
+            tweets = _get_tweets_by_ids(client, tweet_ids=tweet_ids)
+            return json.dumps([t.model_dump(mode="json") for t in tweets], default=str)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_users_batch(handles: list[str]) -> str:
+    """Batch fetch multiple user profiles by handle.
+
+    Args:
+        handles: List of user handles (without @) to fetch.
+    """
+    try:
+        users = []
+        with XClient() as client:
+            for handle in handles:
+                handle = handle.lstrip("@")
+                user = get_user_by_handle(client, handle=handle)
+                if user:
+                    users.append(user)
+        return json.dumps([u.model_dump(mode="json") for u in users], default=str)
     except Exception as e:
         return _error_response(e)
 

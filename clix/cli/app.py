@@ -298,6 +298,62 @@ def trending_cmd(
 
 
 # =============================================================================
+# Batch fetch commands
+# =============================================================================
+
+
+@app.command("tweets")
+def tweets_cmd(
+    ids: Annotated[list[str], typer.Argument(help="Tweet IDs to fetch")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account name")] = None,
+):
+    """Batch fetch multiple tweets by their IDs."""
+    from clix.core.api import get_tweets_by_ids
+    from clix.display.formatter import format_tweet_list
+
+    with get_client(account) as client:
+        tweets = get_tweets_by_ids(client, ids)
+
+    if not tweets:
+        print_error("No tweets found")
+        raise typer.Exit(EXIT_ERROR)
+
+    if is_json_mode(json_output):
+        output_json([t.to_json_dict() for t in tweets])
+    else:
+        format_tweet_list(tweets)
+
+
+@app.command("users")
+def users_cmd(
+    handles: Annotated[list[str], typer.Argument(help="User handles to fetch")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account name")] = None,
+):
+    """Batch fetch multiple user profiles."""
+    from clix.core.api import get_user_by_handle
+    from clix.display.formatter import format_user_list
+
+    users = []
+    with get_client(account) as client:
+        for handle in handles:
+            handle = handle.lstrip("@")
+            user = get_user_by_handle(client, handle)
+            if user:
+                users.append(user)
+
+    if not users:
+        print_error("No users found")
+        raise typer.Exit(EXIT_ERROR)
+
+    if is_json_mode(json_output):
+        output_json([u.to_json_dict() for u in users])
+    else:
+        format_user_list(users)
+
+
+# =============================================================================
 # Quick action shortcuts (top-level)
 # =============================================================================
 
