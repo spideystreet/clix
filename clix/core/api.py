@@ -659,6 +659,73 @@ def unretweet(client: XClient, tweet_id: str) -> dict[str, Any]:
     return client.graphql_post("DeleteRetweet", {"source_tweet_id": tweet_id})
 
 
+def create_scheduled_tweet(
+    client: XClient,
+    text: str,
+    execute_at: int,
+    media_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """Schedule a tweet for future posting.
+
+    Uses hardcoded GraphQL query IDs since scheduled tweet operations
+    are not present in the extracted JS bundles.
+
+    Args:
+        client: Authenticated XClient instance.
+        text: Tweet text content.
+        execute_at: Unix timestamp (seconds) for when the tweet should be posted.
+        media_ids: Optional list of media IDs to attach.
+    """
+    variables: dict[str, Any] = {
+        "post_tweet_request": {
+            "auto_populate_reply_metadata": False,
+            "status": text,
+            "exclude_reply_user_ids": [],
+            "media_ids": media_ids or [],
+        },
+        "execute_at": execute_at,
+    }
+    return client.graphql_post_raw("LCVzRQGxOaGnOnYH01NQXg", "CreateScheduledTweet", variables)
+
+
+def get_scheduled_tweets(client: XClient) -> list[dict[str, Any]]:
+    """List all scheduled tweets."""
+    data = client.graphql_post_raw(
+        "ITtjAzvlZni2wWXwf295Qg", "FetchScheduledTweets", {"ascending": True}
+    )
+    return _parse_scheduled_tweets(data)
+
+
+def delete_scheduled_tweet(client: XClient, scheduled_tweet_id: str) -> dict[str, Any]:
+    """Cancel a scheduled tweet."""
+    variables: dict[str, Any] = {"scheduled_tweet_id": scheduled_tweet_id}
+    return client.graphql_post_raw("CTOVqej0JBXAZSwkp1US0g", "DeleteScheduledTweet", variables)
+
+
+def _parse_scheduled_tweets(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Parse scheduled tweets from the FetchScheduledTweets GraphQL response."""
+    tweets: list[dict[str, Any]] = []
+
+    # GraphQL response: data.viewer.scheduled_tweet_list is a list directly
+    scheduled_list = data.get("data", {}).get("viewer", {}).get("scheduled_tweet_list", [])
+
+    for entry in scheduled_list:
+        scheduling_info = entry.get("scheduling_info", {})
+        tweet_info = entry.get("tweet_create_request", {})
+
+        tweets.append(
+            {
+                "id": entry.get("rest_id", str(entry.get("id", ""))),
+                "text": tweet_info.get("status", ""),
+                "execute_at": scheduling_info.get("execute_at"),
+                "state": scheduling_info.get("state", ""),
+                "media_ids": tweet_info.get("media_ids", []),
+            }
+        )
+
+    return tweets
+
+
 def bookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:
     """Bookmark a tweet."""
     return client.graphql_post("CreateBookmark", {"tweet_id": tweet_id})

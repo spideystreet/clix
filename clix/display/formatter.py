@@ -341,6 +341,40 @@ def format_lists(lists: list[dict]) -> None:
     console.print(table)
 
 
+def format_scheduled_tweets(tweets: list[dict]) -> None:
+    """Display scheduled tweets in a table."""
+    if not tweets:
+        console.print("[dim]No scheduled tweets.[/dim]")
+        return
+
+    table = Table(title="Scheduled Tweets", border_style="dim")
+    table.add_column("ID", style="cyan")
+    table.add_column("Text", style="white", max_width=50)
+    table.add_column("Scheduled For", style="yellow")
+    table.add_column("State", style="dim")
+
+    for tweet in tweets:
+        text = tweet.get("text", "")
+        truncated = (text[:47] + "...") if len(text) > 50 else text
+
+        execute_at = tweet.get("execute_at")
+        if execute_at:
+            scheduled_time = datetime.fromtimestamp(execute_at, tz=UTC).strftime(
+                "%Y-%m-%d %H:%M UTC"
+            )
+        else:
+            scheduled_time = "Unknown"
+
+        table.add_row(
+            tweet.get("id", ""),
+            truncated,
+            scheduled_time,
+            tweet.get("state", ""),
+        )
+
+    console.print(table)
+
+
 def format_dm_inbox(conversations: list[DMConversation]) -> None:
     """Display DM inbox as a table."""
     if not conversations:

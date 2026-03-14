@@ -354,6 +354,112 @@ def users_cmd(
 
 
 # =============================================================================
+# Scheduled tweets commands
+# =============================================================================
+
+
+@app.command("schedule")
+def schedule_cmd(
+    text: Annotated[str, typer.Argument(help="Tweet text")],
+    at: Annotated[
+        str, typer.Option("--at", help="Schedule time (ISO format or 'YYYY-MM-DD HH:MM')")
+    ],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account name")] = None,
+):
+    """Schedule a tweet for future posting."""
+    from datetime import UTC, datetime
+
+    from clix.core.api import create_scheduled_tweet
+
+    # Parse the schedule time
+    schedule_dt = _parse_schedule_time(at)
+    now = datetime.now(UTC)
+    if schedule_dt <= now:
+        print_error("Schedule time must be in the future")
+        raise typer.Exit(EXIT_ERROR)
+
+    execute_at = int(schedule_dt.timestamp())
+
+    with get_client(account) as client:
+        result = create_scheduled_tweet(client, text, execute_at)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Tweet scheduled for {schedule_dt.strftime('%Y-%m-%d %H:%M %Z')}")
+
+
+@app.command("scheduled")
+def scheduled_cmd(
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account name")] = None,
+):
+    """List scheduled tweets."""
+    from clix.core.api import get_scheduled_tweets
+    from clix.display.formatter import format_scheduled_tweets
+
+    with get_client(account) as client:
+        tweets = get_scheduled_tweets(client)
+
+    if is_json_mode(json_output):
+        output_json(tweets)
+    else:
+        format_scheduled_tweets(tweets)
+
+
+@app.command("unschedule")
+def unschedule_cmd(
+    scheduled_tweet_id: Annotated[str, typer.Argument(help="Scheduled tweet ID")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account name")] = None,
+):
+    """Cancel a scheduled tweet."""
+    from clix.core.api import delete_scheduled_tweet
+
+    with get_client(account) as client:
+        result = delete_scheduled_tweet(client, scheduled_tweet_id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Cancelled scheduled tweet {scheduled_tweet_id}")
+
+
+def _parse_schedule_time(time_str: str):
+    """Parse a schedule time string into a timezone-aware datetime."""
+    from datetime import UTC, datetime
+
+    # Try ISO format first (e.g., 2024-01-15T14:30:00)
+    for fmt in [
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+    ]:
+        try:
+            dt = datetime.strptime(time_str, fmt)
+            return dt.replace(tzinfo=UTC)
+        except ValueError:
+            continue
+
+    # Try ISO format with timezone info
+    try:
+        dt = datetime.fromisoformat(time_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt
+    except ValueError:
+        pass
+
+    print_error(
+        f"Invalid time format: '{time_str}'. "
+        "Use ISO format (e.g., '2024-01-15T14:30:00') or 'YYYY-MM-DD HH:MM'"
+    )
+    raise typer.Exit(EXIT_ERROR)
+
+
+# =============================================================================
 # Quick action shortcuts (top-level)
 # =============================================================================
 

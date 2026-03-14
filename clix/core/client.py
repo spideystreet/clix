@@ -429,6 +429,30 @@ class XClient:
         """Make an authenticated REST API GET request (non-GraphQL)."""
         return self._request("GET", url, params=params)
 
+    def graphql_post_raw(
+        self,
+        query_id: str,
+        operation_name: str,
+        variables: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Make a GraphQL POST request with a hardcoded query ID.
+
+        Used for operations not present in the JS bundles (e.g., scheduled tweets).
+
+        Args:
+            query_id: The static query ID for this operation.
+            operation_name: The GraphQL operation name.
+            variables: Variables to pass to the operation.
+        """
+        url = f"{GRAPHQL_BASE}/{query_id}/{operation_name}"
+        json_data = {
+            "variables": variables,
+            "queryId": query_id,
+        }
+        result = self._request("POST", url, json_data=json_data)
+        write_delay()
+        return result
+
     def graphql_get(
         self,
         operation: str,

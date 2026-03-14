@@ -19,10 +19,16 @@ from clix.core.api import (
     create_list as _create_list,
 )
 from clix.core.api import (
+    create_scheduled_tweet as _create_scheduled_tweet,
+)
+from clix.core.api import (
     create_tweet as _create_tweet,
 )
 from clix.core.api import (
     delete_list as _delete_list,
+)
+from clix.core.api import (
+    delete_scheduled_tweet as _delete_scheduled_tweet,
 )
 from clix.core.api import (
     delete_tweet as _delete_tweet,
@@ -52,6 +58,9 @@ from clix.core.api import (
 )
 from clix.core.api import (
     get_list_members as _get_list_members,
+)
+from clix.core.api import (
+    get_scheduled_tweets as _get_scheduled_tweets,
 )
 from clix.core.api import (
     get_trending as _get_trending,
@@ -755,6 +764,53 @@ def unmute(handle: str) -> str:
             if not user:
                 return json.dumps({"error": f"User @{handle} not found", "type": "not_found"})
             result = _unmute_user(client, user_id=user.id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+# =============================================================================
+# Scheduled Tweets Tools
+# =============================================================================
+
+
+@mcp.tool()
+def schedule_tweet(text: str, execute_at: int) -> str:
+    """Schedule a tweet for future posting.
+
+    Args:
+        text: The tweet text content.
+        execute_at: Unix timestamp (seconds) for when the tweet should be posted.
+    """
+    try:
+        with XClient() as client:
+            result = _create_scheduled_tweet(client, text=text, execute_at=execute_at)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def list_scheduled_tweets() -> str:
+    """List all scheduled tweets."""
+    try:
+        with XClient() as client:
+            tweets = _get_scheduled_tweets(client)
+            return json.dumps(tweets, default=str)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def cancel_scheduled_tweet(id: str) -> str:
+    """Cancel a scheduled tweet.
+
+    Args:
+        id: The scheduled tweet ID to cancel.
+    """
+    try:
+        with XClient() as client:
+            result = _delete_scheduled_tweet(client, scheduled_tweet_id=id)
             return _serialize(result)
     except Exception as e:
         return _error_response(e)
