@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 
 import typer
 from rich.console import Console
 
 from clix.core.auth import AuthError
+from clix.core.config import Config
 from clix.core.constants import EXIT_AUTH_ERROR
 
 console = Console()
@@ -31,11 +33,16 @@ def output_json(data: object) -> None:
 
 
 def get_client(account: str | None = None, proxy: str | None = None):
-    """Create an XClient with error handling."""
+    """Create an XClient with error handling.
+
+    Proxy resolution order: explicit arg > CLIX_PROXY env > config file > XClient defaults.
+    """
     from clix.core.client import XClient
 
+    resolved_proxy = proxy or os.environ.get("CLIX_PROXY") or Config.load().network.proxy
+
     try:
-        return XClient(account=account, proxy=proxy)
+        return XClient(account=account, proxy=resolved_proxy or None)
     except AuthError as e:
         from clix.display.formatter import print_error
 

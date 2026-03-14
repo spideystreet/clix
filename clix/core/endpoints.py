@@ -353,7 +353,9 @@ def _fetch_and_extract() -> tuple[dict[str, str], dict[str, bool], dict[str, lis
     sync_chrome_version(target)
     session = curl_requests.Session(impersonate=target)
 
-    proxy = os.environ.get("X_PROXY") or os.environ.get("TWITTER_PROXY")
+    proxy = (
+        os.environ.get("CLIX_PROXY") or os.environ.get("X_PROXY") or os.environ.get("TWITTER_PROXY")
+    )
     if proxy:
         session.proxies = {"http": proxy, "https": proxy}
 

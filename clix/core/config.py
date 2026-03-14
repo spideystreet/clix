@@ -46,6 +46,12 @@ class RequestConfig(BaseModel):
     max_retries: int = 3
 
 
+class NetworkConfig(BaseModel):
+    """Network settings (proxy, etc.)."""
+
+    proxy: str = ""
+
+
 class FilterConfig(BaseModel):
     """Filter settings for tweet scoring."""
 
@@ -63,6 +69,7 @@ class Config(BaseModel):
     default_account: str | None = None
     display: DisplayConfig = Field(default_factory=DisplayConfig)
     request: RequestConfig = Field(default_factory=RequestConfig)
+    network: NetworkConfig = Field(default_factory=NetworkConfig)
     filter: FilterConfig = Field(default_factory=FilterConfig)
 
     @classmethod
