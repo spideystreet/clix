@@ -50,6 +50,9 @@ from clix.core.api import (
 from clix.core.api import (
     unretweet as _unretweet,
 )
+from clix.core.api import (
+    upload_media as _upload_media,
+)
 from clix.core.auth import AuthError, get_credentials
 from clix.core.client import XClient
 
@@ -231,17 +234,37 @@ def get_list_timeline(list_id: str, count: int = 20) -> str:
 
 
 @mcp.tool()
-def post_tweet(text: str, reply_to: str | None = None, quote: str | None = None) -> str:
-    """Post a new tweet.
+def post_tweet(
+    text: str,
+    reply_to: str | None = None,
+    quote: str | None = None,
+    media_paths: list[str] | None = None,
+) -> str:
+    """Post a new tweet, optionally with images (up to 4).
 
     Args:
         text: The tweet text content.
         reply_to: Tweet ID to reply to (optional).
         quote: URL of tweet to quote (optional).
+        media_paths: List of file paths to images to attach (optional, max 4).
     """
     try:
+        media_ids: list[str] | None = None
         with XClient() as client:
-            result = _create_tweet(client, text=text, reply_to_id=reply_to, quote_tweet_url=quote)
+            if media_paths:
+                media_ids = []
+                for path in media_paths:
+                    mid = _upload_media(client, file_path=path)
+                    media_ids.append(mid)
+            result = _create_tweet(
+                client,
+                text=text,
+                reply_to_id=reply_to,
+                quote_tweet_url=quote,
+                media_ids=media_ids,
+            )
+            if media_ids:
+                result = {**result, "media_ids": media_ids}
             return _serialize(result)
     except Exception as e:
         return _error_response(e)
