@@ -27,9 +27,29 @@ class AuthCredentials(BaseModel):
         """Check if credentials look valid (non-empty)."""
         return bool(self.auth_token and self.ct0)
 
+    @property
+    def cookie_string(self) -> str:
+        """Format cookies as a header string.
+
+        Uses the full cookie jar when available (browser/import auth),
+        falls back to auth_token + ct0 only (env var / manual auth).
+        """
+        if self.cookies:
+            return "; ".join(f"{k}={v}" for k, v in self.cookies.items())
+        return f"auth_token={self.auth_token}; ct0={self.ct0}"
+
 
 class AuthError(Exception):
     """Raised when authentication fails."""
+
+
+def _is_twitter_domain(domain: str) -> bool:
+    """Check if a cookie domain belongs to Twitter/X."""
+    return (
+        domain in ("x.com", "twitter.com", ".x.com", ".twitter.com")
+        or domain.endswith(".x.com")
+        or domain.endswith(".twitter.com")
+    )
 
 
 def get_auth_file() -> Path:
@@ -117,15 +137,7 @@ def import_cookies_from_file(file_path: str) -> AuthCredentials | None:
                 value = cookie.get("value", "")
                 domain = cookie.get("domain", "")
                 # Only keep twitter/x cookies
-                if (
-                    ".x.com" in domain
-                    or ".twitter.com" in domain
-                    or domain
-                    in (
-                        "x.com",
-                        "twitter.com",
-                    )
-                ):
+                if _is_twitter_domain(domain):
                     cookies[name] = value
 
             auth_token = cookies.get("auth_token", "")
@@ -212,26 +224,33 @@ def extract_cookies_from_browser(browser: str | None = None) -> AuthCredentials 
             continue
 
         try:
-            cookie_jar = fn(domain_name=".x.com")
-            cookies = {c.name: c.value for c in cookie_jar}
+            all_cookies: dict[str, str] = {}
 
-            # Also try twitter.com domain
+            # Extract cookies from .x.com domain
+            cookie_jar = fn(domain_name=".x.com")
+            for cookie in cookie_jar:
+                domain = cookie.domain or ""
+                if _is_twitter_domain(domain):
+                    all_cookies[cookie.name] = cookie.value
+
+            # Also try .twitter.com domain
             try:
                 cookie_jar_tw = fn(domain_name=".twitter.com")
-                for c in cookie_jar_tw:
-                    if c.name not in cookies:
-                        cookies[c.name] = c.value
+                for cookie in cookie_jar_tw:
+                    domain = cookie.domain or ""
+                    if _is_twitter_domain(domain) and cookie.name not in all_cookies:
+                        all_cookies[cookie.name] = cookie.value
             except Exception:
                 pass
 
-            auth_token = cookies.get("auth_token", "")
-            ct0 = cookies.get("ct0", "")
+            auth_token = all_cookies.get("auth_token", "")
+            ct0 = all_cookies.get("ct0", "")
 
             if auth_token and ct0:
                 return AuthCredentials(
                     auth_token=auth_token,
                     ct0=ct0,
-                    cookies=cookies,
+                    cookies=all_cookies,
                     account_name=None,
                 )
         except Exception:
