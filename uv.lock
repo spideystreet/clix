@@ -43,6 +43,19 @@ wheels = [
 ]
 
 [[package]]
+name = "beautifulsoup4"
+version = "4.14.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "soupsieve" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/b0/1c6a16426d389813b48d95e26898aff79abbde42ad353958ad95cc8c9b21/beautifulsoup4-4.14.3.tar.gz", hash = "sha256:6292b1c5186d356bba669ef9f7f051757099565ad9ada5dd630bd9de5fa7fb86", size = 627737, upload-time = "2025-11-30T15:08:26.084Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/39/47f9197bdd44df24d67ac8893641e16f386c984a0619ef2ee4c51fbbc019/beautifulsoup4-4.14.3-py3-none-any.whl", hash = "sha256:0918bfe44902e6ad8d57732ba310582e98da931428d231a5ecb9e7c703a735bb", size = 107721, upload-time = "2025-11-30T15:08:24.087Z" },
+]
+
+[[package]]
 name = "browser-cookie3"
 version = "0.20.1"
 source = { registry = "https://pypi.org/simple" }
@@ -150,9 +163,10 @@ wheels = [
 
 [[package]]
 name = "clix0"
-version = "0.2.0"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
+    { name = "beautifulsoup4" },
     { name = "browser-cookie3" },
     { name = "cryptography" },
     { name = "curl-cffi" },
@@ -160,6 +174,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "rich" },
     { name = "typer" },
+    { name = "xclienttransaction" },
 ]
 
 [package.dev-dependencies]
@@ -170,6 +185,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "beautifulsoup4", specifier = ">=4.14.3" },
     { name = "browser-cookie3", specifier = ">=0.19.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "curl-cffi", specifier = ">=0.7.0" },
@@ -177,6 +193,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "typer", specifier = ">=0.12.0" },
+    { name = "xclienttransaction", specifier = ">=1.0.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -917,6 +934,15 @@ wheels = [
 ]
 
 [[package]]
+name = "soupsieve"
+version = "2.8.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/ae/2d9c981590ed9999a0d91755b47fc74f74de286b0f5cee14c9269041e6c4/soupsieve-2.8.3.tar.gz", hash = "sha256:3267f1eeea4251fb42728b6dfb746edc9acaffc4a45b27e19450b676586e8349", size = 118627, upload-time = "2026-01-20T04:27:02.457Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/46/2c/1462b1d0a634697ae9e55b3cecdcb64788e8b7d63f54d923fcd0bb140aed/soupsieve-2.8.3-py3-none-any.whl", hash = "sha256:ed64f2ba4eebeab06cc4962affce381647455978ffc1e36bb79a545b91f45a95", size = 37016, upload-time = "2026-01-20T04:27:01.012Z" },
+]
+
+[[package]]
 name = "sse-starlette"
 version = "3.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1001,4 +1027,16 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d4/66/6364deb0a03415f96c66803d8c4379f808f2401da3bdb183348487b10510/WMI-1.5.1.tar.gz", hash = "sha256:b6a6be5711b1b6c8d55bda7a8befd75c48c12b770b9d227d31c1737dbf0d40a6", size = 26254, upload-time = "2020-04-28T08:22:58.096Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ee/b9/a80d1ed4d115dac8e2ac08d16af046a77ab58e3d186e22395bf2add24090/WMI-1.5.1-py2.py3-none-any.whl", hash = "sha256:1d6b085e5c445141c475476000b661f60fff1aaa19f76bf82b7abb92e0ff4942", size = 28912, upload-time = "2020-04-28T08:22:56.055Z" },
+]
+
+[[package]]
+name = "xclienttransaction"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/eb/c7/c841afe6759567cf29e36196dff65c935682b69ae38e986bd14e7decf74e/xclienttransaction-1.0.1.tar.gz", hash = "sha256:e4e032ff27e76ab927c0a7f57ad3630e06b7100c113bdf22b03cdde9584756f3", size = 9062, upload-time = "2025-10-09T10:38:31.485Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/b8/b953828e2f0f658f7f2d6354525728c9569c83937ebe4903f2391f02a702/xclienttransaction-1.0.1-py3-none-any.whl", hash = "sha256:0280e021129a38f8ee2ebede6406d4c065a599430bd4c8aa0c122f2e42f9f0f0", size = 10724, upload-time = "2025-10-09T10:38:30.098Z" },
 ]

@@ -5,14 +5,21 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
+import urllib.parse
+from pathlib import Path
 from typing import Any
 
+import bs4
 from curl_cffi import requests as curl_requests
+from x_client_transaction import ClientTransaction
+from x_client_transaction.utils import generate_headers, get_ondemand_file_url
 
 from clix.core.auth import AuthCredentials, AuthError, get_credentials
 from clix.core.constants import (
     BASE_URL,
     BEARER_TOKEN,
+    CONFIG_DIR_NAME,
     DEFAULT_FIELD_TOGGLES,
     GRAPHQL_BASE,
     SEC_CH_UA_ARCH,
@@ -32,6 +39,52 @@ from clix.core.endpoints import get_graphql_endpoints, get_op_features, invalida
 from clix.utils.rate_limit import backoff_delay, delay, write_delay
 
 logger = logging.getLogger(__name__)
+
+# Transaction cache settings
+_TRANSACTION_CACHE_FILE = "transaction_cache.json"
+_TRANSACTION_CACHE_TTL = 3600  # 1 hour
+
+
+def _transaction_cache_path() -> Path:
+    """Return path to the transaction data disk cache."""
+    return Path.home() / ".config" / CONFIG_DIR_NAME / _TRANSACTION_CACHE_FILE
+
+
+def _load_transaction_cache() -> dict[str, Any] | None:
+    """Load cached homepage + ondemand JS from disk if still fresh."""
+    path = _transaction_cache_path()
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+        cached_at = data.get("cached_at", 0)
+        if time.time() - cached_at > _TRANSACTION_CACHE_TTL:
+            logger.debug("Transaction cache expired (age=%ds)", time.time() - cached_at)
+            return None
+        if "home_html" not in data or "ondemand_text" not in data:
+            return None
+        return data
+    except Exception:
+        logger.debug("Failed to read transaction cache", exc_info=True)
+        return None
+
+
+def _save_transaction_cache(home_html: str, ondemand_text: str) -> None:
+    """Persist homepage + ondemand JS to disk cache."""
+    path = _transaction_cache_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "home_html": home_html,
+                    "ondemand_text": ondemand_text,
+                    "cached_at": time.time(),
+                }
+            )
+        )
+    except Exception:
+        logger.debug("Failed to write transaction cache", exc_info=True)
 
 
 class APIError(Exception):
@@ -70,6 +123,8 @@ class XClient:
             or ""
         )
         self._session: curl_requests.Session | None = None
+        self._client_transaction: ClientTransaction | None = None
+        self._transaction_init_attempted: bool = False
 
     @property
     def credentials(self) -> AuthCredentials:
@@ -94,10 +149,64 @@ class XClient:
                 }
         return self._session
 
-    def _get_headers(self) -> dict[str, str]:
+    def _init_transaction(self) -> None:
+        """Initialize X-Client-Transaction-Id generator (lazy, cached to disk).
+
+        Fetches X.com homepage and ondemand JS to build the transaction signer.
+        Results are cached to disk with a 1-hour TTL. On any failure the header
+        is silently skipped for this client lifetime.
+        """
+        if self._transaction_init_attempted:
+            return
+        self._transaction_init_attempted = True
+
+        try:
+            # Try disk cache first
+            cached = _load_transaction_cache()
+            if cached:
+                home_soup = bs4.BeautifulSoup(cached["home_html"], "html.parser")
+                self._client_transaction = ClientTransaction(
+                    home_page_response=home_soup,
+                    ondemand_file_response=cached["ondemand_text"],
+                )
+                logger.debug("Loaded transaction signer from disk cache")
+                return
+
+            # Cache miss — fetch live data
+            logger.debug("Transaction cache miss, fetching homepage + ondemand JS")
+            headers = generate_headers()
+            home_resp = self.session.get(f"{BASE_URL}/", headers=headers, timeout=15)
+            home_html = home_resp.text
+            home_soup = bs4.BeautifulSoup(home_html, "html.parser")
+
+            ondemand_url = get_ondemand_file_url(home_soup)
+            if not ondemand_url:
+                logger.warning("Could not extract ondemand JS URL from homepage")
+                return
+
+            ondemand_resp = self.session.get(ondemand_url, headers=headers, timeout=15)
+            ondemand_text = ondemand_resp.text
+
+            self._client_transaction = ClientTransaction(
+                home_page_response=home_soup,
+                ondemand_file_response=ondemand_text,
+            )
+
+            # Persist to disk cache
+            _save_transaction_cache(home_html, ondemand_text)
+            logger.debug("Transaction signer initialized and cached")
+
+        except Exception:
+            logger.debug(
+                "Failed to initialize transaction signer — "
+                "X-Client-Transaction-Id header will be skipped",
+                exc_info=True,
+            )
+
+    def _get_headers(self, method: str = "GET", url: str = "") -> dict[str, str]:
         """Build browser-like request headers for API calls."""
         creds = self.credentials
-        return {
+        headers = {
             "authorization": f"Bearer {BEARER_TOKEN}",
             "x-csrf-token": creds.ct0,
             "x-twitter-auth-type": "OAuth2Session",
@@ -125,6 +234,22 @@ class XClient:
             "sec-fetch-site": "same-origin",
         }
 
+        # Transaction ID — generated per-request from method + path
+        if self._client_transaction and url:
+            try:
+                path = urllib.parse.urlparse(url).path
+                tid = self._client_transaction.generate_transaction_id(method=method, path=path)
+                headers["x-client-transaction-id"] = tid
+            except Exception:
+                logger.debug(
+                    "Failed to generate transaction ID for %s %s",
+                    method,
+                    url,
+                    exc_info=True,
+                )
+
+        return headers
+
     def _get_cookies(self) -> dict[str, str]:
         """Build cookie dict."""
         creds = self.credentials
@@ -142,7 +267,10 @@ class XClient:
         max_retries: int = 3,
     ) -> dict[str, Any]:
         """Make an authenticated request with retry logic."""
-        headers = self._get_headers()
+        # Lazy-init transaction signer on first API call
+        self._init_transaction()
+
+        headers = self._get_headers(method=method, url=url)
         cookies = self._get_cookies()
 
         last_error: Exception | None = None
