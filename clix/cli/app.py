@@ -12,6 +12,7 @@ from clix.cli.helpers import get_client, is_json_mode, output_json
 from clix.core.auth import (
     AuthCredentials,
     AuthError,
+    discover_chrome_profiles,
     extract_cookies_from_browser,
     get_credentials,
     import_cookies_from_file,
@@ -86,10 +87,38 @@ def auth_login(
         str | None, typer.Option(help="Browser: chrome, firefox, edge, brave")
     ] = None,
     account: Annotated[str, typer.Option(help="Account name")] = "default",
+    profile: Annotated[
+        str | None, typer.Option(help="Chrome profile name (e.g. 'Profile 3')")
+    ] = None,
+    list_profiles: Annotated[
+        bool, typer.Option("--list-profiles", help="Show available browser profiles")
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
 ):
     """Extract cookies from browser and save."""
-    console.print(f"Extracting cookies from {browser or 'available browsers'}...")
-    creds = extract_cookies_from_browser(browser)
+    if list_profiles:
+        profiles = discover_chrome_profiles()
+        if is_json_mode(json_output):
+            output_json([p.model_dump() for p in profiles])
+        elif not profiles:
+            print_warning("No Chrome/Chromium profiles found")
+        else:
+            from rich.table import Table
+
+            table = Table(title="Browser Profiles")
+            table.add_column("Browser", style="cyan")
+            table.add_column("Profile", style="green")
+            table.add_column("Cookie DB", style="dim")
+            for p in profiles:
+                table.add_row(p.browser, p.profile, p.path)
+            console.print(table)
+        return
+
+    source = browser or "available browsers"
+    if profile:
+        source = f"{source} (profile: {profile})"
+    console.print(f"Extracting cookies from {source}...")
+    creds = extract_cookies_from_browser(browser, profile=profile)
 
     if creds and creds.is_valid:
         save_auth(creds, account)
