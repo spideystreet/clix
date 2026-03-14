@@ -10,8 +10,11 @@ from clix.cli.helpers import (
     get_client,
     is_compact_mode,
     is_json_mode,
+    is_yaml_mode,
     output_compact,
     output_json,
+    output_yaml,
+    validate_output_flags,
 )
 from clix.display.formatter import (
     console,
@@ -29,11 +32,14 @@ def user_profile(
     ctx: typer.Context,
     handle: Annotated[str, typer.Argument(help="Twitter handle (without @)")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View a user's profile."""
     if ctx.invoked_subcommand is not None:
         return
+
+    validate_output_flags(json_output, yaml_output)
 
     from clix.core.api import get_user_by_handle
 
@@ -54,6 +60,8 @@ def user_profile(
         output_compact(user, kind="user")
     elif is_json_mode(json_output):
         output_json(user.to_json_dict())
+    elif is_yaml_mode(yaml_output):
+        output_yaml(user.to_json_dict())
     else:
         console.print(format_user(user))
 
@@ -65,9 +73,11 @@ def user_tweets(
     count: Annotated[int, typer.Option("--count", "-n", help="Number of tweets")] = 20,
     replies: Annotated[bool, typer.Option("--replies", help="Include replies")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View a user's tweets."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import get_user_by_handle, get_user_tweets
 
     handle = handle.lstrip("@")
@@ -88,6 +98,8 @@ def user_tweets(
         output_compact(response.tweets)
     elif is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
+    elif is_yaml_mode(yaml_output):
+        output_yaml([t.to_json_dict() for t in response.tweets])
     else:
         full_text = ctx.obj.get("full_text", False) if ctx.obj else False
         format_tweet_list(response.tweets, full_text=full_text)
@@ -99,9 +111,11 @@ def user_likes(
     handle: Annotated[str, typer.Argument(help="Twitter handle")],
     count: Annotated[int, typer.Option("--count", "-n", help="Number of tweets")] = 20,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View a user's liked tweets."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import get_user_by_handle, get_user_likes
 
     handle = handle.lstrip("@")
@@ -122,6 +136,8 @@ def user_likes(
         output_compact(response.tweets)
     elif is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
+    elif is_yaml_mode(yaml_output):
+        output_yaml([t.to_json_dict() for t in response.tweets])
     else:
         full_text = ctx.obj.get("full_text", False) if ctx.obj else False
         format_tweet_list(response.tweets, full_text=full_text)
@@ -133,9 +149,11 @@ def user_followers(
     handle: Annotated[str, typer.Argument(help="Twitter handle")],
     count: Annotated[int, typer.Option("--count", "-n", help="Number of users")] = 20,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View a user's followers."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import get_followers, get_user_by_handle
 
     handle = handle.lstrip("@")
@@ -156,6 +174,8 @@ def user_followers(
         output_compact(users, kind="users")
     elif is_json_mode(json_output):
         output_json([u.to_json_dict() for u in users])
+    elif is_yaml_mode(yaml_output):
+        output_yaml([u.to_json_dict() for u in users])
     else:
         format_user_list(users)
 
@@ -166,9 +186,11 @@ def user_following(
     handle: Annotated[str, typer.Argument(help="Twitter handle")],
     count: Annotated[int, typer.Option("--count", "-n", help="Number of users")] = 20,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View who a user follows."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import get_following, get_user_by_handle
 
     handle = handle.lstrip("@")
@@ -189,5 +211,7 @@ def user_following(
         output_compact(users, kind="users")
     elif is_json_mode(json_output):
         output_json([u.to_json_dict() for u in users])
+    elif is_yaml_mode(yaml_output):
+        output_yaml([u.to_json_dict() for u in users])
     else:
         format_user_list(users)

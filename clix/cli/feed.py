@@ -6,7 +6,16 @@ from typing import Annotated
 
 import typer
 
-from clix.cli.helpers import get_client, is_compact_mode, is_json_mode, output_compact, output_json
+from clix.cli.helpers import (
+    get_client,
+    is_compact_mode,
+    is_json_mode,
+    is_yaml_mode,
+    output_compact,
+    output_json,
+    output_yaml,
+    validate_output_flags,
+)
 from clix.display.formatter import format_tweet_list
 
 feed_app = typer.Typer(no_args_is_help=False, invoke_without_command=True)
@@ -26,11 +35,14 @@ def feed(
     top_n: Annotated[int, typer.Option("--top", help="Top N for filter mode")] = 10,
     threshold: Annotated[float, typer.Option("--threshold", help="Score threshold")] = 0.0,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Fetch your home timeline."""
     if ctx.invoked_subcommand is not None:
         return
+
+    validate_output_flags(json_output, yaml_output)
 
     from clix.core.api import get_home_timeline
     from clix.utils.filter import filter_tweets
@@ -57,6 +69,8 @@ def feed(
         output_compact(all_tweets)
     elif is_json_mode(json_output):
         output_json([t.to_json_dict() for t in all_tweets])
+    elif is_yaml_mode(yaml_output):
+        output_yaml([t.to_json_dict() for t in all_tweets])
     else:
         full_text = ctx.obj.get("full_text", False) if ctx.obj else False
         format_tweet_list(all_tweets, full_text=full_text)

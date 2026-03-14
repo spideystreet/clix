@@ -8,7 +8,16 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from clix.cli.helpers import get_client, is_compact_mode, is_json_mode, output_compact, output_json
+from clix.cli.helpers import (
+    get_client,
+    is_compact_mode,
+    is_json_mode,
+    is_yaml_mode,
+    output_compact,
+    output_json,
+    output_yaml,
+    validate_output_flags,
+)
 from clix.core.auth import (
     AuthCredentials,
     AuthError,
@@ -60,9 +69,11 @@ app.add_typer(auth_app, name="auth")
 @auth_app.command("status")
 def auth_status(
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Check authentication status."""
+    validate_output_flags(json_output, yaml_output)
     try:
         creds = get_credentials(account)
         info = {
@@ -73,6 +84,8 @@ def auth_status(
         }
         if is_json_mode(json_output):
             output_json(info)
+        elif is_yaml_mode(yaml_output):
+            output_yaml(info)
         else:
             print_success(f"Authenticated (token: {info['auth_token']})")
             if creds.account_name:
@@ -80,6 +93,8 @@ def auth_status(
     except AuthError:
         if is_json_mode(json_output):
             output_json({"authenticated": False})
+        elif is_yaml_mode(yaml_output):
+            output_yaml({"authenticated": False})
         else:
             print_error("Not authenticated")
         raise typer.Exit(EXIT_AUTH_ERROR)
@@ -170,11 +185,15 @@ def auth_set(
 @auth_app.command("accounts")
 def auth_accounts(
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
 ):
     """List stored accounts."""
+    validate_output_flags(json_output, yaml_output)
     accounts = list_accounts()
     if is_json_mode(json_output):
         output_json({"accounts": accounts})
+    elif is_yaml_mode(yaml_output):
+        output_yaml({"accounts": accounts})
     else:
         if not accounts:
             print_warning("No accounts stored")
@@ -203,13 +222,17 @@ def auth_switch(
 @app.command("config")
 def config_cmd(
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
 ):
     """Show current configuration."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.config import Config
 
     cfg = Config.load()
     if is_json_mode(json_output):
         output_json(cfg.model_dump())
+    elif is_yaml_mode(yaml_output):
+        output_yaml(cfg)
     else:
         console.print(cfg.model_dump())
 
@@ -224,9 +247,11 @@ def bookmarks_cmd(
     ctx: typer.Context,
     count: Annotated[int, typer.Option("--count", "-n", help="Number of tweets")] = 20,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """View your bookmarks."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import get_bookmarks
     from clix.display.formatter import format_tweet_list
 
@@ -241,6 +266,8 @@ def bookmarks_cmd(
         output_compact(response.tweets)
     elif is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
+    elif is_yaml_mode(yaml_output):
+        output_yaml([t.to_json_dict() for t in response.tweets])
     else:
         full_text = ctx.obj.get("full_text", False) if ctx.obj else False
         format_tweet_list(response.tweets, full_text=full_text)
@@ -258,9 +285,11 @@ def post(
     reply_to: Annotated[str | None, typer.Option("--reply-to", help="Tweet ID to reply to")] = None,
     quote: Annotated[str | None, typer.Option("--quote", help="Tweet URL to quote")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Post a new tweet."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import create_tweet
 
     compact = is_compact_mode(ctx)
@@ -272,6 +301,8 @@ def post(
 
     if compact or is_json_mode(json_output):
         output_json(result)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(result)
     else:
         print_success("Tweet posted!")
 
@@ -281,9 +312,11 @@ def like(
     ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Like a tweet."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import like_tweet
 
     compact = is_compact_mode(ctx)
@@ -295,6 +328,8 @@ def like(
 
     if compact or is_json_mode(json_output):
         output_json(result)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(result)
     else:
         print_success(f"Liked tweet {tweet_id}")
 
@@ -304,9 +339,11 @@ def unlike(
     ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Unlike a tweet."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import unlike_tweet
 
     compact = is_compact_mode(ctx)
@@ -318,6 +355,8 @@ def unlike(
 
     if compact or is_json_mode(json_output):
         output_json(result)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(result)
     else:
         print_success(f"Unliked tweet {tweet_id}")
 
@@ -327,9 +366,11 @@ def rt(
     ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Retweet a tweet."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import retweet
 
     compact = is_compact_mode(ctx)
@@ -341,6 +382,8 @@ def rt(
 
     if compact or is_json_mode(json_output):
         output_json(result)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(result)
     else:
         print_success(f"Retweeted {tweet_id}")
 
@@ -350,9 +393,11 @@ def unrt(
     ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Undo a retweet."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import unretweet
 
     compact = is_compact_mode(ctx)
@@ -364,6 +409,8 @@ def unrt(
 
     if compact or is_json_mode(json_output):
         output_json(result)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(result)
     else:
         print_success(f"Unretweeted {tweet_id}")
 
@@ -373,9 +420,11 @@ def bm(
     ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Bookmark a tweet."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import bookmark_tweet
 
     compact = is_compact_mode(ctx)
@@ -387,6 +436,8 @@ def bm(
 
     if compact or is_json_mode(json_output):
         output_json(result)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(result)
     else:
         print_success(f"Bookmarked tweet {tweet_id}")
 
@@ -396,9 +447,11 @@ def unbm(
     ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
     """Remove a bookmark."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import unbookmark_tweet
 
     compact = is_compact_mode(ctx)
@@ -410,6 +463,8 @@ def unbm(
 
     if compact or is_json_mode(json_output):
         output_json(result)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(result)
     else:
         print_success(f"Unbookmarked tweet {tweet_id}")
 
@@ -471,10 +526,12 @@ def delete(
     ctx: typer.Context,
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID to delete")],
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
 ):
     """Delete a tweet."""
+    validate_output_flags(json_output, yaml_output)
     from clix.core.api import delete_tweet
 
     compact = is_compact_mode(ctx)
@@ -491,6 +548,8 @@ def delete(
 
     if compact or is_json_mode(json_output):
         output_json(result)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(result)
     else:
         print_success(f"Deleted tweet {tweet_id}")
 

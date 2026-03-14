@@ -36,6 +36,12 @@ def is_compact_mode(ctx: typer.Context) -> bool:
     return bool((ctx.obj or {}).get("compact", False))
 
 
+def validate_output_flags(json_flag: bool, yaml_flag: bool) -> None:
+    """Raise an error if both --json and --yaml are passed."""
+    if json_flag and yaml_flag:
+        raise typer.BadParameter("--json and --yaml are mutually exclusive")
+
+
 def output_json(data: object) -> None:
     """Print JSON output."""
     if hasattr(data, "model_dump"):
@@ -89,6 +95,29 @@ def output_compact(data: list[Any] | Any, *, kind: str = "tweets") -> None:
         items = [_compact_tweet(t) for t in data]
 
     print(json.dumps(items, separators=(",", ":")))
+
+
+def is_yaml_mode(yaml_flag: bool) -> bool:
+    """Determine if output should be YAML (explicit flag)."""
+    return yaml_flag
+
+
+def output_yaml(data: list | dict | object) -> None:
+    """Output data as YAML."""
+    import yaml
+
+    if isinstance(data, list):
+        serialized = [
+            item.model_dump(mode="json") if hasattr(item, "model_dump") else item for item in data
+        ]
+    elif hasattr(data, "model_dump"):
+        serialized = data.model_dump(mode="json")  # type: ignore[union-attr]
+    else:
+        serialized = data
+    print(
+        yaml.safe_dump(serialized, allow_unicode=True, sort_keys=False, default_flow_style=False),
+        end="",
+    )
 
 
 def get_client(account: str | None = None, proxy: str | None = None):
