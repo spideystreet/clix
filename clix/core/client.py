@@ -416,6 +416,14 @@ class XClient:
                 raise
         raise APIError(f"Unreachable: _graphql_request retry loop for '{operation}'")
 
+    def rest_get(
+        self,
+        url: str,
+        params: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Make an authenticated REST API GET request (non-GraphQL)."""
+        return self._request("GET", url, params=params)
+
     def graphql_get(
         self,
         operation: str,
