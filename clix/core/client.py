@@ -264,6 +264,7 @@ class XClient:
         url: str,
         params: dict | None = None,
         json_data: dict | None = None,
+        data: dict | None = None,
         max_retries: int = 3,
     ) -> dict[str, Any]:
         """Make an authenticated request with retry logic."""
@@ -271,6 +272,9 @@ class XClient:
         self._init_transaction()
 
         headers = self._get_headers(method=method, url=url)
+        headers = self._get_headers()
+        if data is not None:
+            headers["content-type"] = "application/x-www-form-urlencoded"
         cookies = self._get_cookies()
 
         last_error: Exception | None = None
@@ -284,6 +288,7 @@ class XClient:
                     cookies=cookies,
                     params=params,
                     json=json_data,
+                    data=data,
                     timeout=30,
                 )
 

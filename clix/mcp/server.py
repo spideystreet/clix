@@ -63,6 +63,9 @@ from clix.core.api import (
     like_tweet as _like_tweet,
 )
 from clix.core.api import (
+    mute_user as _mute_user,
+)
+from clix.core.api import (
     pin_list as _pin_list,
 )
 from clix.core.api import (
@@ -85,6 +88,9 @@ from clix.core.api import (
 )
 from clix.core.api import (
     unlike_tweet as _unlike_tweet,
+)
+from clix.core.api import (
+    unmute_user as _unmute_user,
 )
 from clix.core.api import (
     unpin_list as _unpin_list,
@@ -713,6 +719,42 @@ def dm_send(handle: str, text: str) -> str:
             if user is None:
                 return json.dumps({"error": "User not found", "type": "NotFoundError"})
             result = _send_dm(client, user_id=user.id, text=text)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def mute(handle: str) -> str:
+    """Mute a user.
+
+    Args:
+        handle: The username (screen name) to mute.
+    """
+    try:
+        with XClient() as client:
+            user = get_user_by_handle(client, handle)
+            if not user:
+                return json.dumps({"error": f"User @{handle} not found", "type": "not_found"})
+            result = _mute_user(client, user_id=user.id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def unmute(handle: str) -> str:
+    """Unmute a user.
+
+    Args:
+        handle: The username (screen name) to unmute.
+    """
+    try:
+        with XClient() as client:
+            user = get_user_by_handle(client, handle)
+            if not user:
+                return json.dumps({"error": f"User @{handle} not found", "type": "not_found"})
+            result = _unmute_user(client, user_id=user.id)
             return _serialize(result)
     except Exception as e:
         return _error_response(e)

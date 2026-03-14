@@ -679,6 +679,50 @@ def unblock(
         print_success(f"Unblocked @{handle}")
 
 
+@app.command("mute")
+def mute(
+    handle: Annotated[str, typer.Argument(help="Username to mute")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """Mute a user."""
+    from clix.core.api import get_user_by_handle, mute_user
+
+    with get_client(account) as client:
+        user = get_user_by_handle(client, handle)
+        if not user:
+            print_error(f"User @{handle} not found")
+            raise typer.Exit(1)
+        result = mute_user(client, user.id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Muted @{handle}")
+
+
+@app.command("unmute")
+def unmute(
+    handle: Annotated[str, typer.Argument(help="Username to unmute")],
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """Unmute a user."""
+    from clix.core.api import get_user_by_handle, unmute_user
+
+    with get_client(account) as client:
+        user = get_user_by_handle(client, handle)
+        if not user:
+            print_error(f"User @{handle} not found")
+            raise typer.Exit(1)
+        result = unmute_user(client, user.id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success(f"Unmuted @{handle}")
+
+
 @app.command("download")
 def download(
     tweet_id: Annotated[str, typer.Argument(help="Tweet ID")],

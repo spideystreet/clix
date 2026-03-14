@@ -1061,3 +1061,19 @@ def delete_dm(client: XClient, conversation_id: str, message_id: str) -> dict[st
         "message_id": message_id,
     }
     return client.graphql_post("DMMessageDeleteMutation", variables)
+
+
+def mute_user(client: XClient, user_id: str) -> dict[str, Any]:
+    """Mute a user."""
+    return client.rest_post(
+        "https://x.com/i/api/1.1/mutes/users/create.json",
+        {"user_id": user_id},
+    )
+
+
+def unmute_user(client: XClient, user_id: str) -> dict[str, Any]:
+    """Unmute a user."""
+    return client.rest_post(
+        "https://x.com/i/api/1.1/mutes/users/destroy.json",
+        {"user_id": user_id},
+    )
