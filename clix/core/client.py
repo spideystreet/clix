@@ -346,9 +346,11 @@ class XClient:
         operation: str,
         variables: dict[str, Any],
         features: dict[str, Any] | None = None,
+        field_toggles: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a GraphQL request with auto-retry on stale endpoint IDs."""
         resolved_features = features if features is not None else get_op_features(operation)
+        resolved_toggles = field_toggles if field_toggles is not None else DEFAULT_FIELD_TOGGLES
 
         for attempt in range(2):
             endpoints = get_graphql_endpoints()
@@ -366,7 +368,7 @@ class XClient:
                     "params": {
                         "variables": json.dumps(variables),
                         "features": json.dumps(resolved_features),
-                        "fieldToggles": json.dumps(DEFAULT_FIELD_TOGGLES),
+                        "fieldToggles": json.dumps(resolved_toggles),
                     }
                 }
             else:
@@ -419,18 +421,20 @@ class XClient:
         operation: str,
         variables: dict[str, Any],
         features: dict[str, Any] | None = None,
+        field_toggles: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a GraphQL GET request."""
-        return self._graphql_request("GET", operation, variables, features)
+        return self._graphql_request("GET", operation, variables, features, field_toggles)
 
     def graphql_post(
         self,
         operation: str,
         variables: dict[str, Any],
         features: dict[str, Any] | None = None,
+        field_toggles: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a GraphQL POST request (for write operations)."""
-        return self._graphql_request("POST", operation, variables, features)
+        return self._graphql_request("POST", operation, variables, features, field_toggles)
 
     def rest_post(self, url: str, data: dict[str, str]) -> dict[str, Any]:
         """Send a REST POST request with form-encoded body."""

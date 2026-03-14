@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from rich.console import Console
+from rich.markdown import Markdown as RichMarkdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from clix.models.tweet import Tweet
+from clix.models.tweet import Tweet, TweetEngagement
 from clix.models.user import User
 
 console = Console()
@@ -246,6 +247,47 @@ def format_thread(tweets: list[Tweet], focal_id: str | None = None) -> None:
             add_to_tree(tree, reply)
 
     console.print(tree)
+
+
+def format_article(
+    title: str,
+    author: str,
+    content_md: str,
+    engagement: TweetEngagement | None = None,
+) -> Panel:
+    """Format a Twitter Article as a rich Panel with rendered Markdown."""
+    # Build engagement line if provided
+    engagement_text = ""
+    if engagement:
+        stats = []
+        if engagement.likes:
+            stats.append(f"\u2764\ufe0f  {_format_number(engagement.likes)}")
+        if engagement.retweets:
+            stats.append(f"\U0001f501 {_format_number(engagement.retweets)}")
+        if engagement.bookmarks:
+            stats.append(f"\U0001f516 {_format_number(engagement.bookmarks)}")
+        if engagement.views:
+            stats.append(f"\U0001f441\ufe0f  {_format_number(engagement.views)}")
+        if stats:
+            engagement_text = " \u00b7 ".join(stats)
+
+    from rich.console import Group
+
+    parts: list[object] = [RichMarkdown(content_md)]
+    if engagement_text:
+        parts.append(Text())
+        parts.append(Text(engagement_text, style="dim"))
+
+    header = Text()
+    header.append(title or "Article", style="bold white")
+    header.append(f" by @{author}", style="dim cyan")
+
+    return Panel(
+        Group(*parts),
+        title=header,
+        border_style="green",
+        padding=(1, 2),
+    )
 
 
 def format_user_list(users: list[User]) -> None:

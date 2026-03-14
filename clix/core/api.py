@@ -345,6 +345,64 @@ def get_bookmarks(
     return _extract_tweets_from_timeline(data)
 
 
+def get_article(client: XClient, tweet_id: str) -> dict[str, Any] | None:
+    """Fetch article data for an article tweet.
+
+    Uses TweetResultByRestId with article-specific features and field toggles.
+    Returns the article_results dict if present, or None for non-article tweets.
+    """
+    variables = {
+        "tweetId": tweet_id,
+        "withCommunity": False,
+        "includePromotedContent": False,
+        "withVoice": False,
+    }
+
+    # Merge operation features with article-specific overrides
+    from clix.core.endpoints import get_op_features
+
+    features = get_op_features("TweetResultByRestId")
+    features.update(
+        {
+            "longform_notetweets_consumption_enabled": True,
+            "responsive_web_twitter_article_tweet_consumption_enabled": True,
+            "longform_notetweets_rich_text_read_enabled": True,
+            "longform_notetweets_inline_media_enabled": True,
+            "articles_preview_enabled": True,
+        }
+    )
+
+    field_toggles = {
+        "withArticleRichContentState": True,
+        "withArticlePlainText": True,
+    }
+
+    data = client.graphql_get(
+        "TweetResultByRestId",
+        variables,
+        features=features,
+        field_toggles=field_toggles,
+    )
+
+    result = data.get("data", {}).get("tweetResult", {}).get("result", {})
+    if not result:
+        return None
+
+    # Handle TweetWithVisibilityResults wrapper
+    if result.get("__typename") == "TweetWithVisibilityResults":
+        result = result.get("tweet", result)
+
+    article_results = result.get("article_results")
+    if not article_results:
+        return None
+
+    # Include tweet metadata alongside article data
+    return {
+        "tweet_result": result,
+        "article_results": article_results,
+    }
+
+
 def get_list_tweets(
     client: XClient,
     list_id: str,

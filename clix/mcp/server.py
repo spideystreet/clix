@@ -19,6 +19,9 @@ from clix.core.api import (
     follow_user as _follow_user,
 )
 from clix.core.api import (
+    get_article as _get_article,
+)
+from clix.core.api import (
     get_bookmarks as _get_bookmarks,
 )
 from clix.core.api import (
@@ -114,6 +117,8 @@ def search(query: str, type: str = "Top", count: int = 20) -> str:
 def get_tweet(id: str, thread: bool = False) -> str:
     """Fetch a tweet by ID, optionally with its conversation thread.
 
+    If the tweet is a Twitter Article, includes article_markdown in the response.
+
     Args:
         id: The tweet ID.
         thread: If True, return the full conversation thread.
@@ -123,10 +128,37 @@ def get_tweet(id: str, thread: bool = False) -> str:
             tweets = get_tweet_detail(client, tweet_id=id)
             if not tweets:
                 return json.dumps({"error": "Tweet not found", "type": "NotFoundError"})
+
+            # Check if the focal tweet is an article
+            article_md = None
+            try:
+                article_data = _get_article(client, tweet_id=id)
+                if article_data:
+                    from clix.utils.article import (
+                        article_to_markdown,
+                        extract_article_metadata,
+                    )
+
+                    article_results = article_data.get("article_results", {})
+                    metadata = extract_article_metadata(article_results)
+                    article_md = article_to_markdown(article_results)
+            except Exception:
+                # Article fetch is best-effort — don't fail the whole request
+                pass
+
             if thread:
-                return json.dumps([t.model_dump(mode="json") for t in tweets], default=str)
-            # Return just the focal tweet (first one)
-            return _serialize(tweets[0])
+                result = [t.model_dump(mode="json") for t in tweets]
+                if article_md:
+                    result[0]["article_markdown"] = article_md
+                    result[0]["article_title"] = metadata.get("title", "")
+                return json.dumps(result, default=str)
+
+            # Return just the focal tweet
+            tweet_data = tweets[0].model_dump(mode="json")
+            if article_md:
+                tweet_data["article_markdown"] = article_md
+                tweet_data["article_title"] = metadata.get("title", "")
+            return json.dumps(tweet_data, default=str)
     except Exception as e:
         return _error_response(e)
 
