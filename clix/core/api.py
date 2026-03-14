@@ -77,6 +77,7 @@ def _find_instructions(data: dict[str, Any]) -> list[dict]:
         ["data", "bookmark_timeline", "timeline", "instructions"],
         ["data", "search_by_raw_query", "bookmarks_search_timeline", "timeline", "instructions"],
         ["data", "list", "tweets_timeline", "timeline", "instructions"],
+        ["data", "list", "members_timeline", "timeline", "instructions"],
         ["data", "threaded_conversation_with_injections_v2", "instructions"],
         ["data", "tweetResult", "result"],
     ]:
@@ -660,6 +661,66 @@ def unretweet(client: XClient, tweet_id: str) -> dict[str, Any]:
 def bookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:
     """Bookmark a tweet."""
     return client.graphql_post("CreateBookmark", {"tweet_id": tweet_id})
+
+
+# =============================================================================
+# List Operations
+# =============================================================================
+
+
+def create_list(
+    client: XClient,
+    name: str,
+    description: str = "",
+    is_private: bool = False,
+) -> dict[str, Any]:
+    """Create a new list."""
+    variables: dict[str, Any] = {
+        "isPrivate": is_private,
+        "name": name,
+        "description": description,
+    }
+    return client.graphql_post("CreateList", variables)
+
+
+def delete_list(client: XClient, list_id: str) -> dict[str, Any]:
+    """Delete a list."""
+    return client.graphql_post("DeleteList", {"listId": list_id})
+
+
+def add_list_member(client: XClient, list_id: str, user_id: str) -> dict[str, Any]:
+    """Add a member to a list."""
+    return client.graphql_post("ListAddMember", {"listId": list_id, "userId": user_id})
+
+
+def remove_list_member(client: XClient, list_id: str, user_id: str) -> dict[str, Any]:
+    """Remove a member from a list."""
+    return client.graphql_post("ListRemoveMember", {"listId": list_id, "userId": user_id})
+
+
+def get_list_members(
+    client: XClient,
+    list_id: str,
+    count: int = 20,
+    cursor: str | None = None,
+) -> tuple[list[User], str | None]:
+    """Fetch members of a list."""
+    variables: dict[str, Any] = {"listId": list_id, "count": count}
+    if cursor:
+        variables["cursor"] = cursor
+
+    data = client.graphql_get("ListMembers", variables)
+    return _extract_users_from_timeline(data)
+
+
+def pin_list(client: XClient, list_id: str) -> dict[str, Any]:
+    """Pin a list."""
+    return client.graphql_post("ListPinOne", {"listId": list_id})
+
+
+def unpin_list(client: XClient, list_id: str) -> dict[str, Any]:
+    """Unpin a list."""
+    return client.graphql_post("ListUnpinOne", {"listId": list_id})
 
 
 def unbookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:

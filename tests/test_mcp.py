@@ -12,7 +12,7 @@ class TestMcpToolRegistration:
     """Verify all MCP tools are registered."""
 
     def test_all_tools_registered(self):
-        """All 24 MCP tools should be registered."""
+        """All 31 MCP tools should be registered."""
         expected = {
             "get_feed",
             "search",
@@ -38,12 +38,19 @@ class TestMcpToolRegistration:
             "unblock",
             "download_media",
             "auth_status",
+            "create_list",
+            "delete_list",
+            "add_list_member",
+            "remove_list_member",
+            "get_list_members",
+            "pin_list",
+            "unpin_list",
         }
         assert _tool_names() == expected
 
     def test_tool_count(self):
-        """Exactly 24 tools should be registered."""
-        assert len(_tool_names()) == 24
+        """Exactly 31 tools should be registered."""
+        assert len(_tool_names()) == 31
 
     def test_read_tools_present(self):
         """Read tools should be registered."""
@@ -74,8 +81,27 @@ class TestMcpToolRegistration:
             "unfollow",
             "block",
             "unblock",
+            "create_list",
+            "delete_list",
+            "add_list_member",
+            "remove_list_member",
+            "pin_list",
+            "unpin_list",
         }
         assert write_tools.issubset(_tool_names())
+
+    def test_list_tools_present(self):
+        """List tools should be registered."""
+        list_tools = {
+            "create_list",
+            "delete_list",
+            "add_list_member",
+            "remove_list_member",
+            "get_list_members",
+            "pin_list",
+            "unpin_list",
+        }
+        assert list_tools.issubset(_tool_names())
 
     def test_auth_status_tool_present(self):
         """auth_status tool should be registered."""

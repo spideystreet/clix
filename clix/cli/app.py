@@ -939,7 +939,7 @@ def _register_subcommands() -> None:
     app.add_typer(tweet_app, name="tweet", help="View or manage tweets")
     app.add_typer(search_app, name="search", help="Search tweets")
     app.add_typer(user_app, name="user", help="View user profiles")
-    app.add_typer(lists_app, name="lists", help="View your lists")
+    app.add_typer(lists_app, name="lists", help="Manage lists")
 
 
 _register_subcommands()

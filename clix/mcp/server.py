@@ -7,13 +7,22 @@ import json
 from mcp.server.fastmcp import FastMCP
 
 from clix.core.api import (
+    add_list_member as _add_list_member,
+)
+from clix.core.api import (
     block_user as _block_user,
 )
 from clix.core.api import (
     bookmark_tweet as _bookmark_tweet,
 )
 from clix.core.api import (
+    create_list as _create_list,
+)
+from clix.core.api import (
     create_tweet as _create_tweet,
+)
+from clix.core.api import (
+    delete_list as _delete_list,
 )
 from clix.core.api import (
     delete_tweet as _delete_tweet,
@@ -39,6 +48,9 @@ from clix.core.api import (
     search_tweets,
 )
 from clix.core.api import (
+    get_list_members as _get_list_members,
+)
+from clix.core.api import (
     get_trending as _get_trending,
 )
 from clix.core.api import (
@@ -46,6 +58,12 @@ from clix.core.api import (
 )
 from clix.core.api import (
     like_tweet as _like_tweet,
+)
+from clix.core.api import (
+    pin_list as _pin_list,
+)
+from clix.core.api import (
+    remove_list_member as _remove_list_member,
 )
 from clix.core.api import (
     retweet as _retweet,
@@ -61,6 +79,9 @@ from clix.core.api import (
 )
 from clix.core.api import (
     unlike_tweet as _unlike_tweet,
+)
+from clix.core.api import (
+    unpin_list as _unpin_list,
 )
 from clix.core.api import (
     unretweet as _unretweet,
@@ -528,6 +549,127 @@ def download_media(tweet_id: str, output_dir: str = ".") -> str:
         with XClient() as client:
             files = _download_tweet_media(client, tweet_id, output_dir=output_dir)
             return json.dumps({"tweet_id": tweet_id, "files": files, "count": len(files)})
+    except Exception as e:
+        return _error_response(e)
+
+
+# =============================================================================
+# List Tools
+# =============================================================================
+
+
+@mcp.tool()
+def create_list(name: str, description: str = "", is_private: bool = False) -> str:
+    """Create a new list.
+
+    Args:
+        name: Name for the new list.
+        description: List description.
+        is_private: Whether the list should be private.
+    """
+    try:
+        with XClient() as client:
+            result = _create_list(client, name, description=description, is_private=is_private)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def delete_list(list_id: str) -> str:
+    """Delete a list.
+
+    Args:
+        list_id: The list ID to delete.
+    """
+    try:
+        with XClient() as client:
+            result = _delete_list(client, list_id=list_id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def add_list_member(list_id: str, user_id: str) -> str:
+    """Add a member to a list.
+
+    Args:
+        list_id: The list ID.
+        user_id: The user ID to add.
+    """
+    try:
+        with XClient() as client:
+            result = _add_list_member(client, list_id=list_id, user_id=user_id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def remove_list_member(list_id: str, user_id: str) -> str:
+    """Remove a member from a list.
+
+    Args:
+        list_id: The list ID.
+        user_id: The user ID to remove.
+    """
+    try:
+        with XClient() as client:
+            result = _remove_list_member(client, list_id=list_id, user_id=user_id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_list_members(list_id: str, count: int = 20) -> str:
+    """Fetch members of a list.
+
+    Args:
+        list_id: The list ID.
+        count: Number of members to fetch (max 100).
+    """
+    try:
+        with XClient() as client:
+            users, next_cursor = _get_list_members(client, list_id=list_id, count=count)
+            return json.dumps(
+                {
+                    "users": [u.model_dump(mode="json") for u in users],
+                    "next_cursor": next_cursor,
+                },
+                default=str,
+            )
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def pin_list(list_id: str) -> str:
+    """Pin a list.
+
+    Args:
+        list_id: The list ID to pin.
+    """
+    try:
+        with XClient() as client:
+            result = _pin_list(client, list_id=list_id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def unpin_list(list_id: str) -> str:
+    """Unpin a list.
+
+    Args:
+        list_id: The list ID to unpin.
+    """
+    try:
+        with XClient() as client:
+            result = _unpin_list(client, list_id=list_id)
+            return _serialize(result)
     except Exception as e:
         return _error_response(e)
 
