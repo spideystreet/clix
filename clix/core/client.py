@@ -436,10 +436,24 @@ class XClient:
         """Make a GraphQL POST request (for write operations)."""
         return self._graphql_request("POST", operation, variables, features, field_toggles)
 
-    def rest_post(self, url: str, data: dict[str, str]) -> dict[str, Any]:
-        """Send a REST POST request with form-encoded body."""
+    def rest_post(
+        self,
+        url: str,
+        data: str | dict[str, str] | None = None,
+        timeout: int = 30,
+    ) -> dict[str, Any]:
+        """Make an authenticated REST POST request (form-encoded, not GraphQL).
+
+        Used for endpoints like the media upload API on upload.twitter.com.
+        """
         headers = self._get_headers()
-        headers["content-type"] = "application/x-www-form-urlencoded"
+        # REST endpoints use form-encoded bodies, not JSON
+        headers.pop("content-type", None)
+        if data is not None:
+            headers["content-type"] = "application/x-www-form-urlencoded"
+        # Cross-origin uploads (e.g. upload.twitter.com from x.com)
+        if "upload.twitter.com" in url:
+            headers["sec-fetch-site"] = "same-site"
         cookies = self._get_cookies()
 
         response = self.session.request(
@@ -448,24 +462,25 @@ class XClient:
             headers=headers,
             cookies=cookies,
             data=data,
-            timeout=30,
+            timeout=timeout,
         )
 
-        if response.status_code == 200:
-            write_delay()
-            return response.json()
+        if response.status_code in (200, 201, 202, 204):
+            if response.text:
+                return response.json()
+            return {}
         elif response.status_code == 401:
             raise AuthError("Authentication failed. Cookies may be expired.")
+        elif response.status_code == 429:
+            raise RateLimitError("Rate limited by Twitter/X", status_code=429)
         elif response.status_code == 403:
             raise APIError(
                 "Forbidden — account may be suspended or action not allowed",
                 status_code=403,
             )
-        elif response.status_code == 429:
-            raise RateLimitError("Rate limited by Twitter/X", status_code=429)
         else:
             raise APIError(
-                f"API error: HTTP {response.status_code}",
+                f"REST API error: HTTP {response.status_code} — {response.text[:500]}",
                 status_code=response.status_code,
                 response_data=response.text[:500],
             )

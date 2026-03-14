@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import base64
+import mimetypes
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
-from clix.core.client import XClient
+from clix.core.client import APIError, XClient
 from clix.models.tweet import TimelineResponse, Tweet
 from clix.models.user import User
+
+# Media upload constants
+UPLOAD_URL = "https://upload.twitter.com/i/media/upload.json"
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+MAX_IMAGES = 4
 
 
 def _extract_tweets_from_timeline(data: dict[str, Any]) -> TimelineResponse:
@@ -457,6 +467,90 @@ def get_user_lists(client: XClient) -> list[dict[str, Any]]:
                 lists.append(list_info)
 
     return lists
+
+
+# =============================================================================
+# Media Upload
+# =============================================================================
+
+
+def _validate_media_file(file_path: str) -> tuple[int, str]:
+    """Validate a media file for upload.
+
+    Returns the file size and MIME type.
+    Raises APIError if validation fails.
+    """
+    path = Path(file_path)
+
+    if not path.exists():
+        raise APIError(f"File not found: {file_path}")
+    if not path.is_file():
+        raise APIError(f"Not a file: {file_path}")
+
+    file_size = path.stat().st_size
+    if file_size > MAX_IMAGE_SIZE:
+        size_mb = file_size / (1024 * 1024)
+        raise APIError(f"File too large: {size_mb:.1f}MB (max {MAX_IMAGE_SIZE // (1024 * 1024)}MB)")
+    if file_size == 0:
+        raise APIError(f"File is empty: {file_path}")
+
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type not in ALLOWED_MIME_TYPES:
+        raise APIError(
+            f"Unsupported image format: {mime_type or 'unknown'}. "
+            f"Supported: {', '.join(sorted(ALLOWED_MIME_TYPES))}"
+        )
+
+    return file_size, mime_type
+
+
+def upload_media(client: XClient, file_path: str) -> str:
+    """Upload an image to Twitter/X and return the media_id_string.
+
+    Uses the chunked upload protocol (INIT → APPEND → FINALIZE).
+    Endpoint: upload.twitter.com (REST, not GraphQL).
+    """
+    file_size, mime_type = _validate_media_file(file_path)
+
+    # Step 1: INIT
+    media_category = "tweet_gif" if mime_type == "image/gif" else "tweet_image"
+    init_data = urlencode(
+        {
+            "command": "INIT",
+            "total_bytes": file_size,
+            "media_type": mime_type,
+            "media_category": media_category,
+        }
+    )
+    init_response = client.rest_post(UPLOAD_URL, data=init_data)
+    media_id = init_response.get("media_id_string")
+    if not media_id:
+        raise APIError(f"Upload INIT failed — no media_id in response: {init_response}")
+
+    # Step 2: APPEND
+    with open(file_path, "rb") as f:
+        media_data = base64.b64encode(f.read()).decode("ascii")
+
+    append_data = urlencode(
+        {
+            "command": "APPEND",
+            "media_id": media_id,
+            "segment_index": 0,
+            "media_data": media_data,
+        }
+    )
+    client.rest_post(UPLOAD_URL, data=append_data, timeout=60)
+
+    # Step 3: FINALIZE
+    finalize_data = urlencode(
+        {
+            "command": "FINALIZE",
+            "media_id": media_id,
+        }
+    )
+    client.rest_post(UPLOAD_URL, data=finalize_data)
+
+    return media_id
 
 
 # =============================================================================

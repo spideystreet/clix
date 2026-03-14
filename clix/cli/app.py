@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -284,27 +285,61 @@ def post(
     text: Annotated[str, typer.Argument(help="Tweet text")],
     reply_to: Annotated[str | None, typer.Option("--reply-to", help="Tweet ID to reply to")] = None,
     quote: Annotated[str | None, typer.Option("--quote", help="Tweet URL to quote")] = None,
+    image: Annotated[
+        list[Path] | None, typer.Option("--image", "-i", help="Image to attach (up to 4)")
+    ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
 ):
-    """Post a new tweet."""
+    """Post a new tweet, optionally with images."""
     validate_output_flags(json_output, yaml_output)
-    from clix.core.api import create_tweet
+    from clix.core.api import (
+        MAX_IMAGES,
+        create_tweet,
+        upload_media,
+    )
+    from clix.core.api import _validate_media_file as validate_media_file
 
     compact = is_compact_mode(ctx)
     if compact and json_output:
         raise typer.BadParameter("--compact and --json are mutually exclusive")
 
-    with get_client(account) as client:
-        result = create_tweet(client, text, reply_to_id=reply_to, quote_tweet_url=quote)
+    media_ids: list[str] | None = None
+
+    if image:
+        if len(image) > MAX_IMAGES:
+            print_error(f"Too many images: {len(image)} (max {MAX_IMAGES})")
+            raise typer.Exit(EXIT_ERROR)
+
+        # Validate all files before uploading
+        for img_path in image:
+            validate_media_file(str(img_path))
+
+        media_ids = []
+        with get_client(account) as client:
+            for img_path in image:
+                mid = upload_media(client, str(img_path))
+                media_ids.append(mid)
+
+            result = create_tweet(
+                client, text, reply_to_id=reply_to, quote_tweet_url=quote, media_ids=media_ids
+            )
+    else:
+        with get_client(account) as client:
+            result = create_tweet(client, text, reply_to_id=reply_to, quote_tweet_url=quote)
 
     if compact or is_json_mode(json_output):
-        output_json(result)
+        output_data = result
+        if media_ids:
+            output_data = {**result, "media_ids": media_ids}
+        output_json(output_data)
     elif is_yaml_mode(yaml_output):
         output_yaml(result)
     else:
-        print_success("Tweet posted!")
+        img_count = len(image) if image else 0
+        suffix = f" with {img_count} image{'s' if img_count > 1 else ''}" if img_count else ""
+        print_success(f"Tweet posted{suffix}!")
 
 
 @app.command("like")
