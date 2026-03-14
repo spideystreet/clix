@@ -351,6 +351,178 @@ def delete(
 
 
 # =============================================================================
+# Doctor command
+# =============================================================================
+
+
+@app.command("doctor")
+def doctor(
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account to check")] = None,
+) -> None:
+    """Run diagnostics to check clix health."""
+    import platform
+    import time
+
+    import curl_cffi
+
+    from clix import __version__
+    from clix.core.auth import get_auth_file, get_auth_from_env, load_stored_auth
+    from clix.core.constants import best_chrome_target
+    from clix.core.endpoints import CACHE_TTL_SECONDS, _get_cache_path
+
+    checks: list[dict[str, str]] = []
+
+    def _pass(name: str, detail: str) -> None:
+        checks.append({"name": name, "status": "pass", "detail": detail})
+
+    def _fail(name: str, detail: str) -> None:
+        checks.append({"name": name, "status": "fail", "detail": detail})
+
+    def _warn(name: str, detail: str) -> None:
+        checks.append({"name": name, "status": "warn", "detail": detail})
+
+    # 1. System info
+    try:
+        py_version = platform.python_version()
+        plat = platform.platform()
+        _pass("Python", f"{py_version} ({plat})")
+        _pass("clix", f"v{__version__}")
+    except Exception as e:
+        _fail("System info", str(e))
+
+    # 2. Dependencies
+    try:
+        cffi_version = curl_cffi.__version__
+        target = best_chrome_target()
+        _pass("curl_cffi", f"{cffi_version} (target: {target})")
+    except Exception as e:
+        _fail("curl_cffi", str(e))
+
+    # 3. Auth status
+    try:
+        env_creds = get_auth_from_env()
+        if env_creds and env_creds.is_valid:
+            _pass("Auth (env)", "X_AUTH_TOKEN and X_CT0 set")
+        else:
+            _warn("Auth (env)", "X_AUTH_TOKEN / X_CT0 not set")
+    except Exception as e:
+        _fail("Auth (env)", str(e))
+
+    try:
+        auth_file = get_auth_file()
+        if auth_file.exists():
+            stored = load_stored_auth(account)
+            if stored and stored.is_valid:
+                label = stored.account_name or "default"
+                _pass("Auth (stored)", f"credentials for @{label}")
+            else:
+                _warn("Auth (stored)", f"{auth_file} exists but no valid credentials")
+        else:
+            _warn("Auth (stored)", f"{auth_file} not found")
+    except Exception as e:
+        _fail("Auth (stored)", str(e))
+
+    # 4. Cookie validation
+    try:
+        creds = None
+        env_creds = get_auth_from_env()
+        if env_creds and env_creds.is_valid:
+            creds = env_creds
+        else:
+            creds = load_stored_auth(account)
+
+        if creds and creds.is_valid:
+            from clix.core.client import XClient
+
+            with XClient(credentials=creds) as client:
+                start_t = time.monotonic()
+                resp = client.session.get(
+                    "https://api.x.com/1.1/account/verify_credentials.json",
+                    headers=client._get_headers(),
+                    cookies=client._get_cookies(),
+                    timeout=10,
+                )
+                elapsed = int((time.monotonic() - start_t) * 1000)
+
+                if resp.status_code == 200:
+                    data = resp.json()
+                    screen_name = data.get("screen_name", "unknown")
+                    _pass("Cookie validation", f"@{screen_name} verified ({elapsed}ms)")
+                elif resp.status_code == 401:
+                    _fail("Cookie validation", "cookies expired or invalid (HTTP 401)")
+                else:
+                    _fail("Cookie validation", f"HTTP {resp.status_code} ({elapsed}ms)")
+        else:
+            _warn("Cookie validation", "no credentials available to validate")
+    except Exception as e:
+        _fail("Cookie validation", str(e))
+
+    # 5. Endpoint cache
+    try:
+        cache_path = _get_cache_path()
+        if cache_path.exists():
+            import json as json_mod
+
+            cache_data = json_mod.loads(cache_path.read_text())
+            timestamp = cache_data.get("timestamp", 0)
+            age_seconds = time.time() - timestamp
+            num_ops = len(cache_data.get("endpoints", {}))
+            stale = age_seconds > CACHE_TTL_SECONDS
+
+            age_str = _format_age(age_seconds)
+            if stale:
+                _warn("Endpoint cache", f"{num_ops} operations cached ({age_str} old, stale)")
+            else:
+                _pass("Endpoint cache", f"{num_ops} operations cached ({age_str} old)")
+        else:
+            _warn("Endpoint cache", f"{cache_path} not found (will be created on first API call)")
+    except Exception as e:
+        _fail("Endpoint cache", str(e))
+
+    # 6. API connectivity
+    try:
+        start_t = time.monotonic()
+        from curl_cffi import requests as curl_requests
+
+        resp = curl_requests.head("https://x.com", timeout=10)
+        elapsed = int((time.monotonic() - start_t) * 1000)
+        if resp.status_code < 400:
+            _pass("API connectivity", f"x.com reachable ({elapsed}ms)")
+        else:
+            _fail("API connectivity", f"x.com returned HTTP {resp.status_code} ({elapsed}ms)")
+    except Exception as e:
+        _fail("API connectivity", f"x.com unreachable: {e}")
+
+    # Output
+    if is_json_mode(json_output):
+        output_json({"checks": checks})
+    else:
+        for check in checks:
+            status = check["status"]
+            name = check["name"]
+            detail = check["detail"]
+            if status == "pass":
+                console.print(f"  [green]\\[PASS][/green] {name}: {detail}")
+            elif status == "fail":
+                console.print(f"  [red]\\[FAIL][/red] {name}: {detail}")
+            else:
+                console.print(f"  [yellow]\\[WARN][/yellow] {name}: {detail}")
+
+
+def _format_age(seconds: float) -> str:
+    """Format seconds into a human-readable age string."""
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    elif seconds < 3600:
+        return f"{int(seconds / 60)}m"
+    elif seconds < 86400:
+        return f"{seconds / 3600:.1f}h"
+    else:
+        return f"{seconds / 86400:.1f}d"
+
+
+# =============================================================================
 # MCP server command
 # =============================================================================
 
