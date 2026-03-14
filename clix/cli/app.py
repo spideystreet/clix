@@ -32,6 +32,18 @@ app = typer.Typer(
 console = Console()
 
 
+@app.callback()
+def main(
+    ctx: typer.Context,
+    full_text: Annotated[
+        bool, typer.Option("--full-text", help="Show full tweet text without truncation")
+    ] = False,
+) -> None:
+    """Twitter/X CLI — browse, search, and post from your terminal."""
+    ctx.ensure_object(dict)
+    ctx.obj["full_text"] = full_text
+
+
 # =============================================================================
 # Auth commands
 # =============================================================================
@@ -176,6 +188,7 @@ def config_cmd(
 
 @app.command("bookmarks")
 def bookmarks_cmd(
+    ctx: typer.Context,
     count: Annotated[int, typer.Option("--count", "-n", help="Number of tweets")] = 20,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
     account: Annotated[str | None, typer.Option(help="Account name")] = None,
@@ -190,7 +203,8 @@ def bookmarks_cmd(
     if is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
     else:
-        format_tweet_list(response.tweets)
+        full_text = ctx.obj.get("full_text", False) if ctx.obj else False
+        format_tweet_list(response.tweets, full_text=full_text)
 
 
 # =============================================================================

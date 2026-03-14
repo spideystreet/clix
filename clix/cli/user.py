@@ -48,6 +48,7 @@ def user_profile(
 
 @user_app.command("tweets")
 def user_tweets(
+    ctx: typer.Context,
     handle: Annotated[str, typer.Argument(help="Twitter handle")],
     count: Annotated[int, typer.Option("--count", "-n", help="Number of tweets")] = 20,
     replies: Annotated[bool, typer.Option("--replies", help="Include replies")] = False,
@@ -70,11 +71,13 @@ def user_tweets(
     if is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
     else:
-        format_tweet_list(response.tweets)
+        full_text = ctx.obj.get("full_text", False) if ctx.obj else False
+        format_tweet_list(response.tweets, full_text=full_text)
 
 
 @user_app.command("likes")
 def user_likes(
+    ctx: typer.Context,
     handle: Annotated[str, typer.Argument(help="Twitter handle")],
     count: Annotated[int, typer.Option("--count", "-n", help="Number of tweets")] = 20,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
@@ -96,7 +99,8 @@ def user_likes(
     if is_json_mode(json_output):
         output_json([t.to_json_dict() for t in response.tweets])
     else:
-        format_tweet_list(response.tweets)
+        full_text = ctx.obj.get("full_text", False) if ctx.obj else False
+        format_tweet_list(response.tweets, full_text=full_text)
 
 
 @user_app.command("followers")

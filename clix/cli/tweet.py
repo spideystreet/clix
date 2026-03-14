@@ -42,4 +42,5 @@ def tweet(
     else:
         # Show just the focal tweet
         focal = next((t for t in tweets if t.id == tweet_id), tweets[0])
-        console.print(format_tweet(focal))
+        full_text = ctx.obj.get("full_text", False) if ctx.obj else False
+        console.print(format_tweet(focal, full_text=full_text))

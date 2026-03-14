@@ -47,7 +47,14 @@ def _format_number(n: int) -> str:
     return str(n)
 
 
-def format_tweet(tweet: Tweet, show_engagement: bool = True) -> Panel:
+def _truncate(text: str, limit: int) -> str:
+    """Truncate text to limit chars, appending '...' if needed."""
+    if len(text) > limit:
+        return text[: limit - 3] + "..."
+    return text
+
+
+def format_tweet(tweet: Tweet, show_engagement: bool = True, full_text: bool = False) -> Panel:
     """Format a single tweet as a rich Panel."""
     # Header: author info + time
     verified = " [blue]\u2713[/blue]" if tweet.author_verified else ""
@@ -70,7 +77,8 @@ def format_tweet(tweet: Tweet, show_engagement: bool = True) -> Panel:
         subtitle = f"replying to @{tweet.reply_to_handle}"
 
     # Tweet text
-    body = Text(tweet.text)
+    display_text = tweet.text if full_text else _truncate(tweet.text, 280)
+    body = Text(display_text)
 
     # Media indicators
     media_text = ""
@@ -109,9 +117,9 @@ def format_tweet(tweet: Tweet, show_engagement: bool = True) -> Panel:
         content.append(f"\n{media_text}", style="dim yellow")
     if tweet.quoted_tweet:
         content.append(f"\n\u250c\u2500 @{tweet.quoted_tweet.author_handle}: ", style="dim")
-        quoted_text = tweet.quoted_tweet.text[:100]
-        if len(tweet.quoted_tweet.text) > 100:
-            quoted_text += "..."
+        quoted_text = (
+            tweet.quoted_tweet.text if full_text else _truncate(tweet.quoted_tweet.text, 120)
+        )
         content.append(quoted_text, style="dim italic")
     if show_engagement and engagement_line.plain:
         content.append("\n")
@@ -127,14 +135,16 @@ def format_tweet(tweet: Tweet, show_engagement: bool = True) -> Panel:
     )
 
 
-def format_tweet_list(tweets: list[Tweet], show_engagement: bool = True) -> None:
+def format_tweet_list(
+    tweets: list[Tweet], show_engagement: bool = True, full_text: bool = False
+) -> None:
     """Print a list of tweets."""
     if not tweets:
         console.print("[dim]No tweets found.[/dim]")
         return
 
     for tweet in tweets:
-        console.print(format_tweet(tweet, show_engagement))
+        console.print(format_tweet(tweet, show_engagement, full_text=full_text))
         console.print()
 
 

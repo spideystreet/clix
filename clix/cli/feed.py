@@ -52,4 +52,5 @@ def feed(
     if is_json_mode(json_output):
         output_json([t.to_json_dict() for t in all_tweets])
     else:
-        format_tweet_list(all_tweets)
+        full_text = ctx.obj.get("full_text", False) if ctx.obj else False
+        format_tweet_list(all_tweets, full_text=full_text)
