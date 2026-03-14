@@ -414,6 +414,49 @@ def get_article(client: XClient, tweet_id: str) -> dict[str, Any] | None:
     }
 
 
+def get_tweets_by_ids(client: XClient, tweet_ids: list[str]) -> list[Tweet]:
+    """Batch fetch tweets by IDs."""
+    variables: dict[str, Any] = {
+        "tweetIds": tweet_ids,
+        "includePromotedContent": False,
+        "withBirdwatchNotes": False,
+        "withVoice": True,
+        "withCommunity": True,
+        "withQuickPromoteEligibilityTweetFields": False,
+    }
+    data = client.graphql_get("TweetResultsByRestIds", variables)
+
+    results = data.get("data", {}).get("tweetResult", [])
+    tweets: list[Tweet] = []
+    for r in results:
+        result = r.get("result", {})
+        if result.get("__typename") == "TweetTombstone":
+            continue
+        if result.get("__typename") == "TweetWithVisibilityResults":
+            result = result.get("tweet", result)
+        tweet = Tweet.from_api_result(result)
+        if tweet:
+            tweets.append(tweet)
+    return tweets
+
+
+def get_users_by_ids(client: XClient, user_ids: list[str]) -> list[User]:
+    """Batch fetch users by IDs."""
+    variables: dict[str, Any] = {"userIds": user_ids}
+    data = client.graphql_get("UsersByRestIds", variables)
+
+    results = data.get("data", {}).get("users", [])
+    users: list[User] = []
+    for r in results:
+        result = r.get("result", {})
+        if result.get("__typename") == "UserUnavailable":
+            continue
+        user = User.from_api_result(result)
+        if user:
+            users.append(user)
+    return users
+
+
 def get_list_tweets(
     client: XClient,
     list_id: str,
