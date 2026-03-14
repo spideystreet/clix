@@ -8,6 +8,9 @@ import pytest
 from clix.core.auth import (
     AuthCredentials,
     AuthError,
+    ChromeProfile,
+    discover_chrome_profiles,
+    extract_cookies_from_browser,
     get_auth_from_env,
     get_credentials,
     load_stored_auth,
@@ -84,6 +87,191 @@ class TestStoredAuth:
             assert loaded2 is not None
             assert loaded1.auth_token == "t1"
             assert loaded2.auth_token == "t2"
+
+
+class TestDiscoverChromeProfiles:
+    def test_discovers_default_profile(self, tmp_path):
+        """Default profile is found when its Cookies file exists."""
+        chrome_dir = tmp_path / "google-chrome" / "Default"
+        chrome_dir.mkdir(parents=True)
+        (chrome_dir / "Cookies").touch()
+
+        with patch(
+            "clix.core.auth._get_chrome_base_dirs",
+            return_value=[("chrome", tmp_path / "google-chrome")],
+        ):
+            profiles = discover_chrome_profiles()
+            assert len(profiles) == 1
+            assert profiles[0].browser == "chrome"
+            assert profiles[0].profile == "Default"
+            assert profiles[0].path == str(chrome_dir / "Cookies")
+
+    def test_discovers_multiple_profiles(self, tmp_path):
+        """Multiple Profile N directories are discovered and sorted."""
+        chrome_dir = tmp_path / "google-chrome"
+        for name in ["Default", "Profile 1", "Profile 2"]:
+            p = chrome_dir / name
+            p.mkdir(parents=True)
+            (p / "Cookies").touch()
+
+        with patch(
+            "clix.core.auth._get_chrome_base_dirs",
+            return_value=[("chrome", chrome_dir)],
+        ):
+            profiles = discover_chrome_profiles()
+            assert len(profiles) == 3
+            names = [p.profile for p in profiles]
+            assert names == ["Default", "Profile 1", "Profile 2"]
+
+    def test_discovers_multiple_browsers(self, tmp_path):
+        """Profiles from different browsers are all discovered."""
+        chrome = tmp_path / "google-chrome" / "Default"
+        chrome.mkdir(parents=True)
+        (chrome / "Cookies").touch()
+
+        edge = tmp_path / "microsoft-edge" / "Default"
+        edge.mkdir(parents=True)
+        (edge / "Cookies").touch()
+
+        with patch(
+            "clix.core.auth._get_chrome_base_dirs",
+            return_value=[
+                ("chrome", tmp_path / "google-chrome"),
+                ("edge", tmp_path / "microsoft-edge"),
+            ],
+        ):
+            profiles = discover_chrome_profiles()
+            assert len(profiles) == 2
+            browsers = {p.browser for p in profiles}
+            assert browsers == {"chrome", "edge"}
+
+    def test_empty_when_no_profiles(self, tmp_path):
+        """Returns empty list when no cookie databases exist."""
+        chrome_dir = tmp_path / "google-chrome"
+        chrome_dir.mkdir(parents=True)
+
+        with patch(
+            "clix.core.auth._get_chrome_base_dirs",
+            return_value=[("chrome", chrome_dir)],
+        ):
+            profiles = discover_chrome_profiles()
+            assert profiles == []
+
+    def test_skips_profiles_without_cookies(self, tmp_path):
+        """Profile dirs without a Cookies file are ignored."""
+        chrome_dir = tmp_path / "google-chrome"
+        (chrome_dir / "Default").mkdir(parents=True)
+        # No Cookies file in Default
+        p1 = chrome_dir / "Profile 1"
+        p1.mkdir(parents=True)
+        (p1 / "Cookies").touch()
+
+        with patch(
+            "clix.core.auth._get_chrome_base_dirs",
+            return_value=[("chrome", chrome_dir)],
+        ):
+            profiles = discover_chrome_profiles()
+            assert len(profiles) == 1
+            assert profiles[0].profile == "Profile 1"
+
+
+class TestExtractCookiesMultiProfile:
+    def test_profile_env_var_is_used(self, tmp_path):
+        """CLIX_CHROME_PROFILE env var filters to the requested profile."""
+        chrome_dir = tmp_path / "google-chrome"
+        for name in ["Default", "Profile 1"]:
+            p = chrome_dir / name
+            p.mkdir(parents=True)
+            (p / "Cookies").touch()
+
+        expected_creds = AuthCredentials(auth_token="tok", ct0="csrf")
+
+        with (
+            patch(
+                "clix.core.auth._get_chrome_base_dirs",
+                return_value=[("chrome", chrome_dir)],
+            ),
+            patch(
+                "clix.core.auth._extract_from_cookie_file",
+                return_value=expected_creds,
+            ) as mock_extract,
+            patch.dict(os.environ, {"CLIX_CHROME_PROFILE": "Profile 1"}),
+        ):
+            creds = extract_cookies_from_browser()
+            assert creds is not None
+            assert creds.auth_token == "tok"
+            # Should only have been called with Profile 1's cookie path
+            # _extract_from_cookie_file(fn, cookie_file) — positional args
+            cookie_file_arg = mock_extract.call_args[0][1]
+            assert "Profile 1" in cookie_file_arg
+
+    def test_explicit_profile_param_overrides_env(self, tmp_path):
+        """Explicit profile parameter takes precedence over env var."""
+        chrome_dir = tmp_path / "google-chrome"
+        for name in ["Default", "Profile 1", "Profile 2"]:
+            p = chrome_dir / name
+            p.mkdir(parents=True)
+            (p / "Cookies").touch()
+
+        expected_creds = AuthCredentials(auth_token="tok", ct0="csrf")
+
+        with (
+            patch(
+                "clix.core.auth._get_chrome_base_dirs",
+                return_value=[("chrome", chrome_dir)],
+            ),
+            patch(
+                "clix.core.auth._extract_from_cookie_file",
+                return_value=expected_creds,
+            ) as mock_extract,
+            patch.dict(os.environ, {"CLIX_CHROME_PROFILE": "Profile 1"}),
+        ):
+            creds = extract_cookies_from_browser(profile="Profile 2")
+            assert creds is not None
+            cookie_file_arg = mock_extract.call_args[0][1]
+            assert "Profile 2" in cookie_file_arg
+
+    def test_first_valid_profile_wins(self, tmp_path):
+        """When no profile specified, first profile with valid creds is used."""
+        chrome_dir = tmp_path / "google-chrome"
+        for name in ["Default", "Profile 1"]:
+            p = chrome_dir / name
+            p.mkdir(parents=True)
+            (p / "Cookies").touch()
+
+        valid_creds = AuthCredentials(auth_token="tok", ct0="csrf")
+
+        def mock_extract(fn: object, cookie_file: str) -> AuthCredentials | None:
+            if "Profile 1" in cookie_file:
+                return valid_creds
+            return None
+
+        with (
+            patch(
+                "clix.core.auth._get_chrome_base_dirs",
+                return_value=[("chrome", chrome_dir)],
+            ),
+            patch(
+                "clix.core.auth._extract_from_cookie_file",
+                side_effect=mock_extract,
+            ),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            creds = extract_cookies_from_browser()
+            assert creds is not None
+            assert creds.auth_token == "tok"
+
+
+class TestChromeProfileModel:
+    def test_serialization(self):
+        """ChromeProfile model serializes correctly."""
+        profile = ChromeProfile(browser="chrome", profile="Default", path="/path/to/Cookies")
+        data = profile.model_dump()
+        assert data == {
+            "browser": "chrome",
+            "profile": "Default",
+            "path": "/path/to/Cookies",
+        }
 
 
 class TestGetCredentials:

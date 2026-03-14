@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import glob as globmod
 import json
 import os
 import platform
@@ -182,21 +183,195 @@ def get_auth_from_env() -> AuthCredentials | None:
     return None
 
 
-def extract_cookies_from_browser(browser: str | None = None) -> AuthCredentials | None:
+class ChromeProfile(BaseModel):
+    """A discovered Chrome/Chromium browser profile."""
+
+    browser: str
+    profile: str
+    path: str
+
+
+def _get_chrome_base_dirs() -> list[tuple[str, Path]]:
+    """Return (browser_name, base_dir) tuples for Chrome-family browsers.
+
+    Platform-aware: Linux, macOS, Windows.
+    """
+    system = platform.system()
+    results: list[tuple[str, Path]] = []
+
+    if system == "Linux":
+        config = Path.home() / ".config"
+        candidates = [
+            ("chrome", config / "google-chrome"),
+            ("chromium", config / "chromium"),
+            ("edge", config / "microsoft-edge"),
+            ("brave", config / "BraveSoftware" / "Brave-Browser"),
+        ]
+    elif system == "Darwin":
+        support = Path.home() / "Library" / "Application Support"
+        candidates = [
+            ("chrome", support / "Google" / "Chrome"),
+            ("edge", support / "Microsoft Edge"),
+            ("brave", support / "BraveSoftware" / "Brave-Browser"),
+        ]
+    elif system == "Windows":
+        local = Path(os.environ.get("LOCALAPPDATA", ""))
+        candidates = [
+            ("chrome", local / "Google" / "Chrome" / "User Data"),
+            ("edge", local / "Microsoft" / "Edge" / "User Data"),
+            ("brave", local / "BraveSoftware" / "Brave-Browser" / "User Data"),
+        ]
+    else:
+        candidates = []
+
+    for name, base in candidates:
+        if base.exists():
+            results.append((name, base))
+
+    return results
+
+
+def _get_cookie_db_name() -> str:
+    """Return the cookie database filename for the current platform."""
+    system = platform.system()
+    if system == "Windows":
+        return "Cookies"
+    # Linux and macOS both use "Cookies"
+    return "Cookies"
+
+
+def discover_chrome_profiles() -> list[ChromeProfile]:
+    """Find all Chrome/Chromium profiles with cookie databases.
+
+    Scans Default and Profile N directories in all Chrome-family browsers.
+    """
+    profiles: list[ChromeProfile] = []
+    cookie_db = _get_cookie_db_name()
+
+    for browser_name, base_dir in _get_chrome_base_dirs():
+        # Check Default profile
+        default_cookies = base_dir / "Default" / cookie_db
+        if default_cookies.exists():
+            profiles.append(
+                ChromeProfile(
+                    browser=browser_name,
+                    profile="Default",
+                    path=str(default_cookies),
+                )
+            )
+
+        # Scan Profile N directories
+        pattern = str(base_dir / "Profile *" / cookie_db)
+        for cookie_path in sorted(globmod.glob(pattern)):
+            profile_dir = Path(cookie_path).parent
+            profiles.append(
+                ChromeProfile(
+                    browser=browser_name,
+                    profile=profile_dir.name,
+                    path=cookie_path,
+                )
+            )
+
+    return profiles
+
+
+def _browser_cookie3_fn_for(browser_name: str) -> Any | None:
+    """Return the browser_cookie3 function for a browser name."""
+    try:
+        import browser_cookie3
+    except ImportError:
+        return None
+
+    mapping = {
+        "chrome": browser_cookie3.chrome,
+        "chromium": browser_cookie3.chrome,
+        "edge": browser_cookie3.edge,
+        "brave": browser_cookie3.brave,
+    }
+    return mapping.get(browser_name)
+
+
+def _extract_from_cookie_file(fn: Any, cookie_file: str) -> AuthCredentials | None:
+    """Extract Twitter/X credentials from a specific cookie file using browser_cookie3."""
+    try:
+        cookie_jar = fn(cookie_file=cookie_file, domain_name=".x.com")
+        cookies = {c.name: c.value for c in cookie_jar}
+
+        # Also try twitter.com domain
+        try:
+            cookie_jar_tw = fn(cookie_file=cookie_file, domain_name=".twitter.com")
+            for c in cookie_jar_tw:
+                if c.name not in cookies:
+                    cookies[c.name] = c.value
+        except Exception:
+            pass
+
+        auth_token = cookies.get("auth_token", "")
+        ct0 = cookies.get("ct0", "")
+
+        if auth_token and ct0:
+            return AuthCredentials(
+                auth_token=auth_token,
+                ct0=ct0,
+                cookies=cookies,
+                account_name=None,
+            )
+    except Exception:
+        pass
+    return None
+
+
+def extract_cookies_from_browser(
+    browser: str | None = None,
+    profile: str | None = None,
+) -> AuthCredentials | None:
     """Extract Twitter cookies from browser.
 
-    Tries browsers in order: Chrome, Firefox, Edge, Brave.
+    Supports multi-profile discovery for Chrome-family browsers.
+    Falls back to default browser_cookie3 behavior for Firefox/Opera.
+
+    Args:
+        browser: Force a specific browser (chrome, firefox, edge, brave).
+        profile: Force a specific Chrome profile name (e.g. "Profile 3").
+                 Can also be set via CLIX_CHROME_PROFILE env var.
     """
     try:
         import browser_cookie3
     except ImportError:
         return None
 
-    browsers = []
+    # Resolve profile from env var if not explicitly provided
+    profile = profile or os.environ.get("CLIX_CHROME_PROFILE")
+
+    # Try multi-profile extraction for Chrome-family browsers
+    chrome_family = {"chrome", "chromium", "edge", "brave"}
+    target_browsers = {browser.lower()} if browser else chrome_family
+
+    # If a specific profile is requested, or auto-discover profiles
+    discovered = discover_chrome_profiles()
+    if discovered:
+        # Filter by browser if specified
+        candidates = [p for p in discovered if p.browser in target_browsers]
+
+        if profile:
+            # User requested a specific profile
+            candidates = [p for p in candidates if p.profile == profile]
+
+        for prof in candidates:
+            fn = _browser_cookie3_fn_for(prof.browser)
+            if not fn:
+                continue
+            creds = _extract_from_cookie_file(fn, prof.path)
+            if creds:
+                return creds
+
+    # Fall back to default browser_cookie3 behavior (handles Firefox, Opera,
+    # and cases where profile discovery found nothing)
+    browsers_to_try: list[str] = []
     if browser:
-        browsers = [browser.lower()]
+        browsers_to_try = [browser.lower()]
     else:
-        browsers = _get_available_browsers()
+        browsers_to_try = _get_available_browsers()
 
     cookie_fns = {
         "chrome": browser_cookie3.chrome,
@@ -206,7 +381,11 @@ def extract_cookies_from_browser(browser: str | None = None) -> AuthCredentials 
         "opera": browser_cookie3.opera,
     }
 
-    for browser_name in browsers:
+    for browser_name in browsers_to_try:
+        # Skip Chrome-family browsers we already tried via profile discovery
+        if discovered and browser_name in chrome_family:
+            continue
+
         fn = cookie_fns.get(browser_name)
         if not fn:
             continue
