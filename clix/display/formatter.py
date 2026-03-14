@@ -340,6 +340,27 @@ def format_lists(lists: list[dict]) -> None:
     console.print(table)
 
 
+def format_trends(trends: list[dict]) -> None:
+    """Print trending topics as a rich Table."""
+    if not trends:
+        console.print("[dim]No trending topics found.[/dim]")
+        return
+
+    table = Table(title="Trending Topics", border_style="dim")
+    table.add_column("#", style="bold", width=4)
+    table.add_column("Topic", style="cyan")
+    table.add_column("Tweets", style="white", justify="right")
+    table.add_column("Context", style="dim", max_width=40)
+
+    for i, trend in enumerate(trends, 1):
+        tweet_count = trend.get("tweet_count")
+        count_str = _format_number(tweet_count) if tweet_count else "-"
+        context = trend.get("context", "") or ""
+        table.add_row(str(i), trend["name"], count_str, context)
+
+    console.print(table)
+
+
 def print_success(message: str) -> None:
     """Print a success message."""
     console.print(f"[green]\u2713[/green] {message}")

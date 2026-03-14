@@ -275,6 +275,29 @@ def bookmarks_cmd(
 
 
 # =============================================================================
+# Trending command
+# =============================================================================
+
+
+@app.command("trending")
+def trending_cmd(
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account name")] = None,
+):
+    """Show trending topics."""
+    from clix.core.api import get_trending
+    from clix.display.formatter import format_trends
+
+    with get_client(account) as client:
+        trends = get_trending(client)
+
+    if is_json_mode(json_output):
+        output_json(trends)
+    else:
+        format_trends(trends)
+
+
+# =============================================================================
 # Quick action shortcuts (top-level)
 # =============================================================================
 

@@ -39,6 +39,9 @@ from clix.core.api import (
     search_tweets,
 )
 from clix.core.api import (
+    get_trending as _get_trending,
+)
+from clix.core.api import (
     like_tweet as _like_tweet,
 )
 from clix.core.api import (
@@ -233,6 +236,20 @@ def get_list_timeline(list_id: str, count: int = 20) -> str:
         with XClient() as client:
             response = get_list_tweets(client, list_id=list_id, count=count)
             return _serialize(response)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_trending() -> str:
+    """Get currently trending topics on Twitter/X.
+
+    Returns a list of trending topics with name, tweet count, context, and URL.
+    """
+    try:
+        with XClient() as client:
+            trends = _get_trending(client)
+            return json.dumps(trends, default=str)
     except Exception as e:
         return _error_response(e)
 

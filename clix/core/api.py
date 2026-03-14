@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import mimetypes
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -723,3 +724,118 @@ def download_tweet_media(client: XClient, tweet_id: str, output_dir: str = ".") 
         downloaded.append(str(filepath))
 
     return downloaded
+
+
+def get_trending(client: XClient) -> list[dict[str, Any]]:
+    """Get trending topics from the Explore tab."""
+    url = "https://x.com/i/api/2/guide.json"
+    params = {
+        "include_page_configuration": "false",
+        "initial_tab_id": "trending",
+        "count": "20",
+    }
+    data = client.rest_get(url, params=params)
+    return _parse_trends(data)
+
+
+def _parse_trends(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract trending topics from guide.json response.
+
+    The response nests trend entries inside timeline instructions/modules.
+    Each trend item contains metadata like name, tweet volume, and context.
+    """
+    trends: list[dict[str, Any]] = []
+
+    timeline = data.get("timeline", {})
+    instructions = timeline.get("instructions", [])
+
+    for instruction in instructions:
+        entries = instruction.get("entries", [])
+        for entry in entries:
+            content = entry.get("content", {})
+
+            # Trends may be inside a TimelineTimelineModule (grouped)
+            items = content.get("items", [])
+            if items:
+                for item in items:
+                    trend = _extract_trend(item)
+                    if trend:
+                        trends.append(trend)
+
+            # Or directly in entry content
+            trend = _extract_trend_from_content(content)
+            if trend:
+                trends.append(trend)
+
+    return trends
+
+
+def _extract_trend(item: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract a single trend from a module item."""
+    item_content = item.get("item", {}).get("content", {})
+    return _extract_trend_from_content(item_content)
+
+
+def _extract_trend_from_content(content: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract a single trend from content dict."""
+    trend_metadata = content.get("trend", {})
+    if not trend_metadata:
+        return None
+
+    name = trend_metadata.get("name")
+    if not name:
+        return None
+
+    # Tweet volume (may be absent)
+    tweet_count: int | None = None
+    description = trend_metadata.get("trendMetadata", {})
+    if description:
+        meta_description = description.get("metaDescription")
+        tweet_count = _parse_tweet_volume(meta_description)
+
+    # Context / category
+    context = ""
+    trend_context = content.get("trendContext", {}) or content.get("socialContext", {})
+    if trend_context:
+        context = trend_context.get("text", "")
+
+    # URL
+    url = trend_metadata.get("url", {})
+    trend_url = ""
+    if isinstance(url, dict):
+        trend_url = url.get("url", "")
+    elif isinstance(url, str):
+        trend_url = url
+
+    return {
+        "name": name,
+        "tweet_count": tweet_count,
+        "context": context,
+        "url": trend_url,
+    }
+
+
+def _parse_tweet_volume(text: str | None) -> int | None:
+    """Parse tweet volume from text like '1,234 posts' or '12.5K posts'."""
+    if not text:
+        return None
+
+    match = re.search(r"([\d,.]+)\s*([KkMm])?\s*(posts|tweets)?", text)
+    if not match:
+        return None
+
+    num_str = match.group(1).replace(",", "")
+    multiplier_str = match.group(2)
+
+    try:
+        value = float(num_str)
+    except ValueError:
+        return None
+
+    if multiplier_str:
+        if multiplier_str.upper() == "K":
+            value *= 1_000
+        elif multiplier_str.upper() == "M":
+            value *= 1_000_000
+
+    return int(value)
