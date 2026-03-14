@@ -108,11 +108,7 @@ class TestArticleToMarkdown:
         """Data wrapped in a 'result' key should be unwrapped."""
         data = {
             "result": {
-                "content": {
-                    "content_state": {
-                        "blocks": [{"type": "unstyled", "text": "Nested"}]
-                    }
-                }
+                "content": {"content_state": {"blocks": [{"type": "unstyled", "text": "Nested"}]}}
             }
         }
         assert article_to_markdown(data) == "Nested"
@@ -125,9 +121,7 @@ class TestArticleToMarkdown:
                     {
                         "type": "unstyled",
                         "text": "Hello world",
-                        "inlineStyleRanges": [
-                            {"offset": 6, "length": 5, "style": "BOLD"}
-                        ],
+                        "inlineStyleRanges": [{"offset": 6, "length": 5, "style": "BOLD"}],
                     }
                 ]
             }
@@ -142,9 +136,7 @@ class TestArticleToMarkdown:
                     {
                         "type": "unstyled",
                         "text": "Hello world",
-                        "inlineStyleRanges": [
-                            {"offset": 0, "length": 5, "style": "ITALIC"}
-                        ],
+                        "inlineStyleRanges": [{"offset": 0, "length": 5, "style": "ITALIC"}],
                     }
                 ]
             }
@@ -159,9 +151,7 @@ class TestArticleToMarkdown:
                     {
                         "type": "unstyled",
                         "text": "Use print here",
-                        "inlineStyleRanges": [
-                            {"offset": 4, "length": 5, "style": "CODE"}
-                        ],
+                        "inlineStyleRanges": [{"offset": 4, "length": 5, "style": "CODE"}],
                     }
                 ]
             }
@@ -188,9 +178,7 @@ class TestExtractArticleMetadata:
         data = {
             "result": {
                 "title": "Test",
-                "cover_media": {
-                    "media_info": {"original_img_url": "https://example.com/img.jpg"}
-                },
+                "cover_media": {"media_info": {"original_img_url": "https://example.com/img.jpg"}},
             }
         }
         meta = extract_article_metadata(data)
