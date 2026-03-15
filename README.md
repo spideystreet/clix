@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/e7c0c8af-ae61-4a85-8aef-32a8367f505b" alt="clix" width="120">
 </p>
 
-<h3 align="center"><b>Twitter/X from your terminal. No API keys. No bullshit.</b></h3>
+<h3 align="center"><b>X from terminal. No API keys. No bullshit.</b></h3>
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">

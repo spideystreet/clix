@@ -213,6 +213,21 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# Playwright
+.playwright-mcp/
+
+# MCP config
+.mcp.json
+
+# Screenshots & temp images (root only)
+/*.png
+/*.avif
+
+# Temp docs images
+docs/clix-logo2.png
+docs/clix0-logo.png
+docs/favicon2.png
+
 # Claude
 .claude/*
 !.claude/rules/
