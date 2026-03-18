@@ -405,7 +405,9 @@ def get_article(client: XClient, tweet_id: str) -> dict[str, Any] | None:
     if result.get("__typename") == "TweetWithVisibilityResults":
         result = result.get("tweet", result)
 
-    article_results = result.get("article_results")
+    # X Articles nest under result.article.article_results (not result.article_results)
+    article_obj = result.get("article", {})
+    article_results = article_obj.get("article_results") or result.get("article_results")
     if not article_results:
         return None
 
