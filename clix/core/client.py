@@ -15,7 +15,13 @@ from curl_cffi import requests as curl_requests
 from x_client_transaction import ClientTransaction
 from x_client_transaction.utils import generate_headers, get_ondemand_file_url
 
-from clix.core.auth import AuthCredentials, AuthError, get_credentials
+from clix.core.auth import (
+    AuthCredentials,
+    AuthError,
+    extract_cookies_from_browser,
+    get_credentials,
+    save_auth,
+)
 from clix.core.constants import (
     BASE_URL,
     BEARER_TOKEN,
@@ -125,6 +131,7 @@ class XClient:
         self._session: curl_requests.Session | None = None
         self._client_transaction: ClientTransaction | None = None
         self._transaction_init_attempted: bool = False
+        self._auth_refresh_attempted: bool = False
 
     @property
     def credentials(self) -> AuthCredentials:
@@ -258,6 +265,31 @@ class XClient:
         cookies["ct0"] = creds.ct0
         return cookies
 
+    def _try_refresh_credentials(self) -> bool:
+        """Try to refresh credentials from browser cookies on auth failure.
+
+        Returns True if credentials were successfully refreshed.
+        """
+        if self._auth_refresh_attempted:
+            return False
+        self._auth_refresh_attempted = True
+
+        logger.info("Auth failed, attempting to refresh cookies from browser")
+        try:
+            creds = extract_cookies_from_browser()
+            if creds and creds.is_valid:
+                self._credentials = creds
+                save_auth(creds, self._account or "default")
+                # Reset session to avoid X rejecting the tainted TLS connection
+                if self._session is not None:
+                    self._session.close()
+                    self._session = None
+                logger.info("Credentials refreshed from browser")
+                return True
+        except Exception:
+            logger.debug("Browser cookie refresh failed", exc_info=True)
+        return False
+
     def _request(
         self,
         method: str,
@@ -294,6 +326,13 @@ class XClient:
                 if response.status_code == 200:
                     return response.json()
                 elif response.status_code == 401:
+                    refreshed = self._try_refresh_credentials()
+                    if refreshed:
+                        headers = self._get_headers(method=method, url=url)
+                        if data is not None:
+                            headers["content-type"] = "application/x-www-form-urlencoded"
+                        cookies = self._get_cookies()
+                        continue
                     raise AuthError("Authentication failed. Cookies may be expired.")
                 elif response.status_code == 429:
                     retry_after = response.headers.get("retry-after", "60")
@@ -306,6 +345,13 @@ class XClient:
                         response_data={"retry_after": int(retry_after)},
                     )
                 elif response.status_code == 403:
+                    refreshed = self._try_refresh_credentials()
+                    if refreshed:
+                        headers = self._get_headers(method=method, url=url)
+                        if data is not None:
+                            headers["content-type"] = "application/x-www-form-urlencoded"
+                        cookies = self._get_cookies()
+                        continue
                     raise APIError(
                         "Forbidden — account may be suspended or action not allowed",
                         status_code=403,
