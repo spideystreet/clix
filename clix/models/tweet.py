@@ -54,7 +54,9 @@ class Tweet(BaseModel):
     @property
     def tweet_url(self) -> str:
         """Full URL to the tweet."""
-        return f"https://x.com/{self.author_handle}/status/{self.id}"
+        # Use author_handle if available, otherwise use author_id as fallback
+        handle_or_id = self.author_handle or f"i/user/{self.author_id}" if self.author_id else "unknown"
+        return f"https://x.com/{handle_or_id}/status/{self.id}"
 
     def to_json_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
@@ -69,9 +71,21 @@ class Tweet(BaseModel):
             if "tweet" in result:
                 tweet_data = result["tweet"]
 
+            # Parse user data - handle multiple possible API response structures
+            # Primary path: core.user_results.result.legacy
+            # Fallback: core.user_results.result (some API responses nest legacy differently)
             core = tweet_data.get("core", {})
             user_results = core.get("user_results", {}).get("result", {})
             legacy_user = user_results.get("legacy", {})
+            
+            # Fallback: try to get user data from top-level legacy if not in nested structure
+            if not legacy_user and user_results:
+                # Some API responses have user data at result level directly
+                legacy_user = user_results.get("legacy", user_results)
+            
+            # Additional fallback: try tweet_data directly for user fields
+            if not legacy_user.get("name"):
+                legacy_user = tweet_data.get("legacy", {})
             legacy = tweet_data.get("legacy", {})
             rest_id = tweet_data.get("rest_id", legacy.get("id_str", ""))
 
