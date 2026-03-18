@@ -56,11 +56,15 @@ def _render_atomic_block(
         if entity_type == "MARKDOWN":
             return entity_data.get("markdown", entity_data.get("text", ""))
 
-        if entity_type == "IMAGE" or entity_type == "PHOTO":
+        if entity_type in ("IMAGE", "PHOTO", "MEDIA"):
             url = _find_image_url(entity_data)
             if not url:
-                # Try media ID lookup
+                # Try media ID lookup — check mediaItems array (MEDIA type)
                 media_id = entity_data.get("mediaId", entity_data.get("media_id", ""))
+                if not media_id:
+                    items = entity_data.get("mediaItems", [])
+                    if items:
+                        media_id = items[0].get("mediaId", items[0].get("media_id", ""))
                 url = media_url_map.get(str(media_id), "")
             if url:
                 caption = _find_caption(entity_data)
@@ -74,16 +78,22 @@ def _build_media_url_map(article_data: dict[str, Any]) -> dict[str, str]:
     url_map: dict[str, str] = {}
 
     # From cover_media
-    cover = result.get("cover_media", {}).get("media_info", {})
-    media_id = cover.get("media_id", "")
-    url = cover.get("original_img_url", "")
-    if media_id and url:
-        url_map[str(media_id)] = url
+    cover_media = result.get("cover_media", {})
+    cover_info = cover_media.get("media_info", {})
+    cover_id = cover_media.get("media_id", cover_info.get("media_id", ""))
+    cover_url = cover_info.get("original_img_url", "")
+    if cover_id and cover_url:
+        url_map[str(cover_id)] = cover_url
 
     # From media_entities
     for entity in result.get("media_entities", []):
         mid = entity.get("media_id", "")
-        murl = entity.get("original_img_url", entity.get("mediaUrlHttps", ""))
+        info = entity.get("media_info", {})
+        murl = (
+            info.get("original_img_url", "")
+            or entity.get("original_img_url", "")
+            or entity.get("mediaUrlHttps", "")
+        )
         if mid and murl:
             url_map[str(mid)] = murl
 

@@ -76,6 +76,7 @@ def _find_instructions(data: dict[str, Any]) -> list[dict]:
         ["data", "user", "result", "timeline", "timeline", "instructions"],
         ["data", "bookmark_timeline_v2", "timeline", "instructions"],
         ["data", "bookmark_timeline", "timeline", "instructions"],
+        ["data", "bookmark_collection_timeline", "timeline", "instructions"],
         ["data", "search_by_raw_query", "bookmarks_search_timeline", "timeline", "instructions"],
         ["data", "list", "tweets_timeline", "timeline", "instructions"],
         ["data", "list", "members_timeline", "timeline", "instructions"],
@@ -358,6 +359,77 @@ def get_bookmarks(
     return _extract_tweets_from_timeline(data)
 
 
+def get_bookmark_folders(client: XClient) -> list[dict[str, str]]:
+    """Fetch bookmark folders for the authenticated user."""
+    folders: list[dict[str, str]] = []
+    cursor: str | None = None
+
+    for _ in range(10):  # max pages
+        variables: dict[str, Any] = {}
+        if cursor:
+            variables["cursor"] = cursor
+
+        data = client.graphql_get_raw(
+            "i78YDd0Tza-dV4SYs58kRg",
+            "BookmarkFoldersSlice",
+            variables,
+        )
+
+        items = (
+            data.get("data", {})
+            .get("viewer", {})
+            .get("user_results", {})
+            .get("result", {})
+            .get("bookmark_collections_slice", {})
+            .get("items", [])
+        )
+
+        for item in items:
+            folder_id = item.get("id", "")
+            name = item.get("name", "")
+            if folder_id:
+                folders.append({"id": folder_id, "name": name})
+
+        # Check for next page
+        slice_info = (
+            data.get("data", {})
+            .get("viewer", {})
+            .get("user_results", {})
+            .get("result", {})
+            .get("bookmark_collections_slice", {})
+            .get("slice_info", {})
+        )
+        next_cursor = slice_info.get("next_cursor")
+        if not next_cursor:
+            break
+        cursor = next_cursor
+
+    return folders
+
+
+def get_bookmark_folder_timeline(
+    client: XClient,
+    folder_id: str,
+    count: int = 20,
+    cursor: str | None = None,
+) -> TimelineResponse:
+    """Fetch tweets from a bookmark folder."""
+    variables: dict[str, Any] = {
+        "bookmark_collection_id": folder_id,
+        "count": count,
+        "includePromotedContent": False,
+    }
+    if cursor:
+        variables["cursor"] = cursor
+
+    data = client.graphql_get_raw(
+        "hNY7X2xE2N7HVF6Qb_mu6w",
+        "BookmarkFolderTimeline",
+        variables,
+    )
+    return _extract_tweets_from_timeline(data)
+
+
 def get_article(client: XClient, tweet_id: str) -> dict[str, Any] | None:
     """Fetch article data for an article tweet.
 
@@ -405,7 +477,10 @@ def get_article(client: XClient, tweet_id: str) -> dict[str, Any] | None:
     if result.get("__typename") == "TweetWithVisibilityResults":
         result = result.get("tweet", result)
 
-    article_results = result.get("article_results")
+    # X moved article_results under result.article.article_results
+    article_results = result.get("article_results") or (
+        result.get("article", {}).get("article_results")
+    )
     if not article_results:
         return None
 

@@ -16,7 +16,7 @@ class TestMcpToolRegistration:
     """Verify all MCP tools are registered."""
 
     def test_all_tools_registered(self):
-        """All 42 MCP tools should be registered."""
+        """All 44 MCP tools should be registered."""
         expected = {
             "get_feed",
             "search",
@@ -27,6 +27,8 @@ class TestMcpToolRegistration:
             "get_followers",
             "get_following",
             "list_bookmarks",
+            "get_bookmark_folders",
+            "get_bookmark_folder_timeline",
             "get_lists",
             "get_list_timeline",
             "get_trending",
@@ -64,8 +66,8 @@ class TestMcpToolRegistration:
         assert _tool_names() == expected
 
     def test_tool_count(self):
-        """Exactly 42 tools should be registered."""
-        assert len(_tool_names()) == 42
+        """Exactly 44 tools should be registered."""
+        assert len(_tool_names()) == 44
 
     def test_read_tools_present(self):
         """Read tools should be registered."""

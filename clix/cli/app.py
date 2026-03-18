@@ -275,6 +275,72 @@ def bookmarks_cmd(
         format_tweet_list(response.tweets, full_text=full_text)
 
 
+@app.command("bookmarks-folders")
+def bookmarks_folders_cmd(
+    ctx: typer.Context,
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """List your bookmark folders."""
+    validate_output_flags(json_output, yaml_output)
+    from clix.core.api import get_bookmark_folders
+
+    with get_client(account) as client:
+        folders = get_bookmark_folders(client)
+
+    if is_json_mode(json_output):
+        output_json(folders)
+    elif is_yaml_mode(yaml_output):
+        output_yaml(folders)
+    else:
+        from rich.table import Table
+
+        from clix.cli.helpers import console
+
+        if not folders:
+            console.print("[dim]No bookmark folders found.[/dim]")
+            return
+        table = Table(title="Bookmark Folders")
+        table.add_column("ID", style="dim")
+        table.add_column("Name", style="bold")
+        for f in folders:
+            table.add_row(f["id"], f["name"])
+        console.print(table)
+
+
+@app.command("bookmarks-folder")
+def bookmarks_folder_cmd(
+    ctx: typer.Context,
+    folder_id: Annotated[str, typer.Argument(help="Bookmark folder ID")],
+    count: Annotated[int, typer.Option("--count", "-n", help="Number of tweets")] = 20,
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    yaml_output: Annotated[bool, typer.Option("--yaml", help="YAML output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+):
+    """View tweets from a bookmark folder."""
+    validate_output_flags(json_output, yaml_output)
+    from clix.core.api import get_bookmark_folder_timeline
+    from clix.display.formatter import format_tweet_list
+
+    compact = is_compact_mode(ctx)
+    if compact and json_output:
+        raise typer.BadParameter("--compact and --json are mutually exclusive")
+
+    with get_client(account) as client:
+        response = get_bookmark_folder_timeline(client, folder_id, count)
+
+    if compact:
+        output_compact(response.tweets)
+    elif is_json_mode(json_output):
+        output_json([t.to_json_dict() for t in response.tweets])
+    elif is_yaml_mode(yaml_output):
+        output_yaml([t.to_json_dict() for t in response.tweets])
+    else:
+        full_text = ctx.obj.get("full_text", False) if ctx.obj else False
+        format_tweet_list(response.tweets, full_text=full_text)
+
+
 # =============================================================================
 # Trending command
 # =============================================================================

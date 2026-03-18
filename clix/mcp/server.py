@@ -43,6 +43,12 @@ from clix.core.api import (
     get_article as _get_article,
 )
 from clix.core.api import (
+    get_bookmark_folder_timeline as _get_bookmark_folder_timeline,
+)
+from clix.core.api import (
+    get_bookmark_folders as _get_bookmark_folders,
+)
+from clix.core.api import (
     get_bookmarks as _get_bookmarks,
 )
 from clix.core.api import (
@@ -279,6 +285,36 @@ def list_bookmarks(count: int = 20, cursor: str | None = None) -> str:
     try:
         with XClient() as client:
             response = _get_bookmarks(client, count=count, cursor=cursor)
+            return _serialize(response)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_bookmark_folders() -> str:
+    """Fetch the authenticated user's bookmark folders."""
+    try:
+        with XClient() as client:
+            folders = _get_bookmark_folders(client)
+            return _serialize(folders)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_bookmark_folder_timeline(folder_id: str, count: int = 20, cursor: str | None = None) -> str:
+    """Fetch tweets from a bookmark folder.
+
+    Args:
+        folder_id: The bookmark folder ID.
+        count: Number of tweets to fetch.
+        cursor: Pagination cursor.
+    """
+    try:
+        with XClient() as client:
+            response = _get_bookmark_folder_timeline(
+                client, folder_id=folder_id, count=count, cursor=cursor
+            )
             return _serialize(response)
     except Exception as e:
         return _error_response(e)
