@@ -388,6 +388,24 @@ class XClient:
 
             try:
                 result = self._request(method, url, **kwargs)
+                # Check for GraphQL-level errors (HTTP 200 but errors in body)
+                gql_errors = result.get("errors") if isinstance(result, dict) else None
+                if gql_errors and method == "POST":
+                    # For write operations, GraphQL errors are critical
+                    error_msg = gql_errors[0].get("message", "Unknown GraphQL error")
+                    logger.error(
+                        "GraphQL error for %s: %s (full response: %s)",
+                        operation,
+                        error_msg,
+                        result,
+                    )
+                elif gql_errors:
+                    # For read operations, log as warning (may have partial data)
+                    logger.warning(
+                        "GraphQL errors in %s response: %s",
+                        operation,
+                        [e.get("message", "") for e in gql_errors],
+                    )
                 delay() if method == "GET" else write_delay()
                 return result
             except StaleEndpointError:
