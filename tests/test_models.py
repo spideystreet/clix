@@ -180,6 +180,54 @@ class TestTweetModel:
         assert tweet.retweeted_by == "retweeter"
         assert tweet.author_handle == "original"
 
+    def test_subscriber_only_tweet_detected(self):
+        """Detect subscriber-only tweets via TweetWithVisibilityResults."""
+        api_data = {
+            "__typename": "TweetWithVisibilityResults",
+            "tweet": {
+                "rest_id": "999",
+                "core": {
+                    "user_results": {
+                        "result": {
+                            "rest_id": "111",
+                            "core": {"name": "Creator", "screen_name": "creator"},
+                            "legacy": {},
+                        }
+                    }
+                },
+                "legacy": {"full_text": "Paid content"},
+            },
+            "tweetInterstitial": {
+                "__typename": "TweetInterstitial",
+                "text": {"text": "Subscribe to see this"},
+            },
+        }
+
+        tweet = Tweet.from_api_result(api_data)
+        assert tweet is not None
+        assert tweet.is_subscriber_only is True
+        assert tweet.text == "Paid content"
+
+    def test_regular_tweet_not_subscriber_only(self):
+        """Regular tweets have is_subscriber_only=False."""
+        api_data = {
+            "rest_id": "999",
+            "core": {
+                "user_results": {
+                    "result": {
+                        "rest_id": "111",
+                        "core": {"name": "User", "screen_name": "user"},
+                        "legacy": {},
+                    }
+                }
+            },
+            "legacy": {"full_text": "Normal tweet"},
+        }
+
+        tweet = Tweet.from_api_result(api_data)
+        assert tweet is not None
+        assert tweet.is_subscriber_only is False
+
     def test_tweet_from_api_result_invalid(self):
         assert Tweet.from_api_result({}) is None
         assert Tweet.from_api_result({"rest_id": ""}) is None

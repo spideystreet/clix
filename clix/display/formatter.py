@@ -73,6 +73,11 @@ def format_tweet(tweet: Tweet, show_engagement: bool = True, full_text: bool = F
         rt_line = Text(f"\U0001f501 {tweet.retweeted_by} retweeted", style="dim green")
         console.print(rt_line)
 
+    # Subscriber-only indicator
+    if tweet.is_subscriber_only:
+        sub_line = Text("\U0001f512 Subscriber-only content", style="dim yellow")
+        console.print(sub_line)
+
     # Reply indicator
     subtitle = ""
     if tweet.reply_to_handle:

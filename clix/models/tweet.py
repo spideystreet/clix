@@ -48,6 +48,7 @@ class Tweet(BaseModel):
     source: str | None = None
     is_retweet: bool = False
     retweeted_by: str | None = None
+    is_subscriber_only: bool = False
     url: str | None = None
 
     @computed_field
@@ -66,7 +67,11 @@ class Tweet(BaseModel):
         try:
             # Handle different result wrappers
             tweet_data = result
-            if "tweet" in result:
+            is_subscriber_only = False
+            if result.get("__typename") == "TweetWithVisibilityResults":
+                tweet_data = result.get("tweet", result)
+                is_subscriber_only = bool(result.get("tweetInterstitial"))
+            elif "tweet" in result:
                 tweet_data = result["tweet"]
 
             core = tweet_data.get("core", {})
@@ -157,6 +162,7 @@ class Tweet(BaseModel):
                 conversation_id=legacy.get("conversation_id_str"),
                 language=legacy.get("lang"),
                 source=tweet_data.get("source"),
+                is_subscriber_only=is_subscriber_only,
             )
         except (KeyError, TypeError, IndexError):
             return None
