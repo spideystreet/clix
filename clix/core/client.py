@@ -500,6 +500,25 @@ class XClient:
         write_delay()
         return result
 
+    def graphql_get_raw(
+        self,
+        query_id: str,
+        operation_name: str,
+        variables: dict[str, Any],
+        features: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Make a GraphQL GET request with a hardcoded query ID.
+
+        Used for operations not present in the JS bundles.
+        """
+        url = f"{GRAPHQL_BASE}/{query_id}/{operation_name}"
+        params: dict[str, str] = {"variables": json.dumps(variables)}
+        if features:
+            params["features"] = json.dumps(features)
+        result = self._request("GET", url, params=params)
+        delay()
+        return result
+
     def graphql_get(
         self,
         operation: str,

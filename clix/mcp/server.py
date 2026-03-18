@@ -43,6 +43,12 @@ from clix.core.api import (
     get_article as _get_article,
 )
 from clix.core.api import (
+    get_bookmark_folder_timeline as _get_bookmark_folder_timeline,
+)
+from clix.core.api import (
+    get_bookmark_folders as _get_bookmark_folders,
+)
+from clix.core.api import (
     get_bookmarks as _get_bookmarks,
 )
 from clix.core.api import (
@@ -285,6 +291,36 @@ def list_bookmarks(count: int = 20, cursor: str | None = None) -> str:
 
 
 @mcp.tool()
+def get_bookmark_folders() -> str:
+    """Fetch the authenticated user's bookmark folders."""
+    try:
+        with XClient() as client:
+            folders = _get_bookmark_folders(client)
+            return _serialize(folders)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_bookmark_folder_timeline(folder_id: str, count: int = 20, cursor: str | None = None) -> str:
+    """Fetch tweets from a bookmark folder.
+
+    Args:
+        folder_id: The bookmark folder ID.
+        count: Number of tweets to fetch.
+        cursor: Pagination cursor.
+    """
+    try:
+        with XClient() as client:
+            response = _get_bookmark_folder_timeline(
+                client, folder_id=folder_id, count=count, cursor=cursor
+            )
+            return _serialize(response)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
 def get_lists() -> str:
     """Fetch the authenticated user's lists.
 
@@ -472,11 +508,17 @@ def post_tweet(
 
     Args:
         text: The tweet text content.
-        reply_to: Tweet ID to reply to (optional).
+        reply_to: Tweet ID or URL to reply to (optional).
         quote: URL of tweet to quote (optional).
         media_paths: List of file paths to images to attach (optional, max 4).
     """
     try:
+        # Normalize reply-to: accept full URLs or bare tweet IDs
+        if reply_to:
+            from clix.cli.helpers import normalize_tweet_id
+
+            reply_to = normalize_tweet_id(reply_to)
+
         media_ids: list[str] | None = None
         with XClient() as client:
             if media_paths:
