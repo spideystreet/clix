@@ -27,6 +27,7 @@ from clix.core.auth import (
     get_credentials,
     import_cookies_from_file,
     list_accounts,
+    refresh_credentials,
     save_auth,
     set_default_account,
 )
@@ -147,6 +148,33 @@ def auth_login(
         print_error(
             "Could not extract cookies. Make sure you're logged into X/Twitter in your browser."
         )
+        raise typer.Exit(EXIT_AUTH_ERROR)
+
+
+@auth_app.command("refresh")
+def auth_refresh(
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+):
+    """Re-extract cookies from browser to refresh expired credentials."""
+    creds = refresh_credentials(account)
+    if creds:
+        info = {
+            "refreshed": True,
+            "auth_token": creds.auth_token[:8] + "...",
+            "account": creds.account_name or account or "default",
+        }
+        if is_json_mode(json_output):
+            output_json(info)
+        else:
+            print_success("Cookies refreshed from browser")
+    else:
+        if is_json_mode(json_output):
+            output_json({"refreshed": False})
+        else:
+            print_error(
+                "Could not refresh cookies. Make sure you're logged into X/Twitter in your browser."
+            )
         raise typer.Exit(EXIT_AUTH_ERROR)
 
 

@@ -15,7 +15,7 @@ from curl_cffi import requests as curl_requests
 from x_client_transaction import ClientTransaction
 from x_client_transaction.utils import generate_headers, get_ondemand_file_url
 
-from clix.core.auth import AuthCredentials, AuthError, get_credentials
+from clix.core.auth import AuthCredentials, AuthError, get_credentials, refresh_credentials
 from clix.core.constants import (
     BASE_URL,
     BEARER_TOKEN,
@@ -125,6 +125,7 @@ class XClient:
         self._session: curl_requests.Session | None = None
         self._client_transaction: ClientTransaction | None = None
         self._transaction_init_attempted: bool = False
+        self._auth_refreshed: bool = False
 
     @property
     def credentials(self) -> AuthCredentials:
@@ -202,6 +203,27 @@ class XClient:
                 "X-Client-Transaction-Id header will be skipped",
                 exc_info=True,
             )
+
+    def _try_refresh_auth(self) -> bool:
+        """Attempt to refresh expired cookies from the browser.
+
+        Returns True if credentials were successfully refreshed.
+        Only attempts once per client lifetime to avoid loops.
+        """
+        if self._auth_refreshed:
+            return False
+
+        self._auth_refreshed = True
+        logger.info("Authentication failed — attempting to refresh cookies from browser")
+
+        new_creds = refresh_credentials(self._account)
+        if new_creds:
+            self._credentials = new_creds
+            logger.info("Cookie refresh successful — retrying request")
+            return True
+
+        logger.warning("Cookie refresh failed — no valid cookies found in browser")
+        return False
 
     def _get_headers(self, method: str = "GET", url: str = "") -> dict[str, str]:
         """Build browser-like request headers for API calls."""
@@ -294,7 +316,18 @@ class XClient:
                 if response.status_code == 200:
                     return response.json()
                 elif response.status_code == 401:
-                    raise AuthError("Authentication failed. Cookies may be expired.")
+                    if self._try_refresh_auth():
+                        # Rebuild headers and cookies with refreshed credentials
+                        headers = self._get_headers(method=method, url=url)
+                        if data is not None:
+                            headers["content-type"] = "application/x-www-form-urlencoded"
+                        cookies = self._get_cookies()
+                        continue
+                    raise AuthError(
+                        "Authentication failed. Cookies may be expired.\n"
+                        "Run 'clix auth login' to refresh from browser, "
+                        "or 'clix auth set' to update manually."
+                    )
                 elif response.status_code == 429:
                     retry_after = response.headers.get("retry-after", "60")
                     if attempt < max_retries - 1:
@@ -508,7 +541,32 @@ class XClient:
                 return response.json()
             return {}
         elif response.status_code == 401:
-            raise AuthError("Authentication failed. Cookies may be expired.")
+            if self._try_refresh_auth():
+                # Retry with refreshed credentials
+                headers = self._get_headers()
+                headers.pop("content-type", None)
+                if data is not None:
+                    headers["content-type"] = "application/x-www-form-urlencoded"
+                if "upload.twitter.com" in url:
+                    headers["sec-fetch-site"] = "same-site"
+                cookies = self._get_cookies()
+                response = self.session.request(
+                    method="POST",
+                    url=url,
+                    headers=headers,
+                    cookies=cookies,
+                    data=data,
+                    timeout=timeout,
+                )
+                if response.status_code in (200, 201, 202, 204):
+                    if response.text:
+                        return response.json()
+                    return {}
+            raise AuthError(
+                "Authentication failed. Cookies may be expired.\n"
+                "Run 'clix auth login' to refresh from browser, "
+                "or 'clix auth set' to update manually."
+            )
         elif response.status_code == 429:
             raise RateLimitError("Rate limited by Twitter/X", status_code=429)
         elif response.status_code == 403:

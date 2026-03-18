@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import glob as globmod
 import json
+import logging
 import os
 import platform
 import subprocess
@@ -13,6 +14,8 @@ from typing import Any
 from pydantic import BaseModel
 
 from clix.core.constants import AUTH_FILE_NAME, CONFIG_DIR_NAME
+
+logger = logging.getLogger(__name__)
 
 
 class AuthCredentials(BaseModel):
@@ -465,6 +468,25 @@ def _get_available_browsers() -> list[str]:
         browsers = ["chrome", "edge", "firefox", "brave"]
 
     return browsers or ["chrome", "firefox"]
+
+
+def refresh_credentials(account: str | None = None) -> AuthCredentials | None:
+    """Attempt to refresh credentials by re-extracting cookies from the browser.
+
+    Returns new credentials if extraction succeeds, None otherwise.
+    Skips refresh if credentials came from environment variables.
+    """
+    # Don't refresh env-var credentials — they're externally managed
+    if get_auth_from_env():
+        return None
+
+    creds = extract_cookies_from_browser()
+    if creds and creds.is_valid:
+        save_auth(creds, account or "default")
+        logger.info("Cookies refreshed from browser")
+        return creds
+
+    return None
 
 
 def get_credentials(account: str | None = None) -> AuthCredentials:
