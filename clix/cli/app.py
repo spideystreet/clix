@@ -14,6 +14,7 @@ from clix.cli.helpers import (
     is_compact_mode,
     is_json_mode,
     is_yaml_mode,
+    normalize_tweet_id,
     output_compact,
     output_json,
     output_yaml,
@@ -468,7 +469,9 @@ def _parse_schedule_time(time_str: str):
 def post(
     ctx: typer.Context,
     text: Annotated[str, typer.Argument(help="Tweet text")],
-    reply_to: Annotated[str | None, typer.Option("--reply-to", help="Tweet ID to reply to")] = None,
+    reply_to: Annotated[
+        str | None, typer.Option("--reply-to", help="Tweet ID or URL to reply to")
+    ] = None,
     quote: Annotated[str | None, typer.Option("--quote", help="Tweet URL to quote")] = None,
     image: Annotated[
         list[Path] | None, typer.Option("--image", "-i", help="Image to attach (up to 4)")
@@ -489,6 +492,14 @@ def post(
     compact = is_compact_mode(ctx)
     if compact and json_output:
         raise typer.BadParameter("--compact and --json are mutually exclusive")
+
+    # Normalize reply-to: accept full URLs or bare tweet IDs
+    if reply_to:
+        try:
+            reply_to = normalize_tweet_id(reply_to)
+        except ValueError as e:
+            print_error(str(e))
+            raise typer.Exit(EXIT_ERROR)
 
     media_ids: list[str] | None = None
 

@@ -472,11 +472,17 @@ def post_tweet(
 
     Args:
         text: The tweet text content.
-        reply_to: Tweet ID to reply to (optional).
+        reply_to: Tweet ID or URL to reply to (optional).
         quote: URL of tweet to quote (optional).
         media_paths: List of file paths to images to attach (optional, max 4).
     """
     try:
+        # Normalize reply-to: accept full URLs or bare tweet IDs
+        if reply_to:
+            from clix.cli.helpers import normalize_tweet_id
+
+            reply_to = normalize_tweet_id(reply_to)
+
         media_ids: list[str] | None = None
         with XClient() as client:
             if media_paths:
