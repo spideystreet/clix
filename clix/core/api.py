@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import mimetypes
 import re
 from pathlib import Path
@@ -13,6 +14,8 @@ from clix.core.client import APIError, XClient
 from clix.models.dm import DMConversation
 from clix.models.tweet import TimelineResponse, Tweet
 from clix.models.user import User
+
+logger = logging.getLogger(__name__)
 
 # Media upload constants
 UPLOAD_URL = "https://upload.twitter.com/i/media/upload.json"
@@ -80,6 +83,9 @@ def _find_instructions(data: dict[str, Any]) -> list[dict]:
         ["data", "search_by_raw_query", "bookmarks_search_timeline", "timeline", "instructions"],
         ["data", "list", "tweets_timeline", "timeline", "instructions"],
         ["data", "list", "members_timeline", "timeline", "instructions"],
+        ["data", "viewer", "list_management_timeline", "timeline", "instructions"],
+        ["data", "user", "list_management_timeline", "timeline", "instructions"],
+        ["data", "viewer", "list_management_timeline_v2", "timeline", "instructions"],
         ["data", "threaded_conversation_with_injections_v2", "instructions"],
         ["data", "tweetResult", "result"],
     ]:
@@ -559,13 +565,13 @@ def get_user_lists(client: XClient) -> list[dict[str, Any]]:
     data = client.graphql_get("ListsManagementPageTimeline", variables)
 
     lists: list[dict[str, Any]] = []
-    instructions = (
-        data.get("data", {})
-        .get("viewer", {})
-        .get("list_management_timeline", {})
-        .get("timeline", {})
-        .get("instructions", [])
-    )
+    instructions = _find_instructions(data)
+
+    if not instructions:
+        logger.warning(
+            "get_user_lists: no instructions found in API response. Top-level keys: %s",
+            list(data.get("data", {}).keys()) if isinstance(data.get("data"), dict) else "N/A",
+        )
 
     for instruction in instructions:
         for entry in instruction.get("entries", []):
