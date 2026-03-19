@@ -16,7 +16,7 @@
 
 Twitter killed free API access. clix uses **cookie-based auth** — just log in with your browser, and you're in. Zero API keys, zero OAuth dance.
 
-Three interfaces, one tool: **rich terminal output** for humans, **`--json`/`--compact`** for scripts, and a built-in **MCP server** for AI agents.
+Three interfaces, one tool: **rich terminal output** for humans, **`--json`/`--yaml`/`--compact`** for scripts, and a built-in **MCP server** for AI agents.
 
 ## Quick Start
 
