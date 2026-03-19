@@ -8,6 +8,7 @@ from clix.core.api import (
     _parse_tweet_volume,
     get_bookmarks,
     get_trending,
+    get_user_lists,
 )
 
 
@@ -494,3 +495,167 @@ class TestGetBookmarksCLI:
         result = runner.invoke(app, ["bookmarks", "--json"])
 
         assert result.exit_code == 2
+
+
+class TestGetUserLists:
+    """Verify get_user_lists handles multiple API response structures."""
+
+    def _make_list_entry(self, list_id: str, name: str) -> dict:
+        """Build a single list entry."""
+        return {
+            "content": {
+                "itemContent": {
+                    "list": {
+                        "id_str": list_id,
+                        "name": name,
+                        "description": "",
+                        "member_count": 5,
+                        "subscriber_count": 0,
+                        "mode": "Public",
+                    }
+                }
+            }
+        }
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_viewer_path(self, mock_client_cls: MagicMock) -> None:
+        """Lists should be extracted from data.viewer.list_management_timeline path."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {
+            "data": {
+                "viewer": {
+                    "list_management_timeline": {
+                        "timeline": {
+                            "instructions": [
+                                {
+                                    "type": "TimelineAddEntries",
+                                    "entries": [self._make_list_entry("1", "My List")],
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        result = get_user_lists(client)
+        assert len(result) == 1
+        assert result[0]["id"] == "1"
+        assert result[0]["name"] == "My List"
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_user_path(self, mock_client_cls: MagicMock) -> None:
+        """Lists should be extracted from data.user.list_management_timeline path."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {
+            "data": {
+                "user": {
+                    "list_management_timeline": {
+                        "timeline": {
+                            "instructions": [
+                                {
+                                    "type": "TimelineAddEntries",
+                                    "entries": [self._make_list_entry("2", "Alt Path List")],
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        result = get_user_lists(client)
+        assert len(result) == 1
+        assert result[0]["id"] == "2"
+        assert result[0]["name"] == "Alt Path List"
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_empty_response_returns_empty_list(self, mock_client_cls: MagicMock) -> None:
+        """Unknown response structure should return empty list, not error."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {"data": {"unknown_key": {}}}
+
+        result = get_user_lists(client)
+        assert result == []
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_empty_instructions(self, mock_client_cls: MagicMock) -> None:
+        """Empty instructions list should return empty list."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {
+            "data": {"viewer": {"list_management_timeline": {"timeline": {"instructions": []}}}}
+        }
+
+        result = get_user_lists(client)
+        assert result == []
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_multiple_lists(self, mock_client_cls: MagicMock) -> None:
+        """Multiple list entries should all be extracted."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {
+            "data": {
+                "viewer": {
+                    "list_management_timeline": {
+                        "timeline": {
+                            "instructions": [
+                                {
+                                    "type": "TimelineAddEntries",
+                                    "entries": [
+                                        self._make_list_entry("1", "List A"),
+                                        self._make_list_entry("2", "List B"),
+                                        self._make_list_entry("3", "List C"),
+                                    ],
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        result = get_user_lists(client)
+        assert len(result) == 3
+        names = {r["name"] for r in result}
+        assert names == {"List A", "List B", "List C"}
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_skips_entries_without_list(self, mock_client_cls: MagicMock) -> None:
+        """Entries without list data (e.g. cursors) should be skipped."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {
+            "data": {
+                "viewer": {
+                    "list_management_timeline": {
+                        "timeline": {
+                            "instructions": [
+                                {
+                                    "type": "TimelineAddEntries",
+                                    "entries": [
+                                        self._make_list_entry("1", "Real List"),
+                                        {
+                                            "entryId": "cursor-bottom",
+                                            "content": {"value": "abc"},
+                                        },
+                                    ],
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        result = get_user_lists(client)
+        assert len(result) == 1
+        assert result[0]["name"] == "Real List"
+
+    @patch("clix.core.api.XClient", autospec=True)
+    def test_logs_warning_on_unknown_structure(self, mock_client_cls: MagicMock) -> None:
+        """A warning should be logged when no instructions are found."""
+        client = mock_client_cls.return_value
+        client.graphql_get.return_value = {"data": {"unexpected": {}}}
+
+        with patch("clix.core.api.logger") as mock_logger:
+            get_user_lists(client)
+            mock_logger.warning.assert_called_once()
