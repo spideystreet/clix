@@ -37,11 +37,12 @@
 - `graphql_post(operation, variables)` — dynamic query ID from endpoint resolver
 - `graphql_post_raw(query_id, operation, variables)` — hardcoded query ID (for ops not in JS bundles)
 - `rest_post(url, data)` — form-encoded REST POST (follow, block, mute)
-- `rest_get(url, params)` — authenticated REST GET (trending, DM inbox)
+- `rest_get(url, params)` — authenticated REST GET (DM inbox)
 
 ## GraphQL API Gotchas
 - **Always check required variables**: Twitter/X GraphQL endpoints may require variables even when they seem optional. Missing variables cause HTTP 422
-- **Fallback query IDs**: Some operations (SearchTimeline, CreateRetweet, CreateBookmark, DeleteBookmark, scheduled tweet ops) are not in X.com JS bundles — use `FALLBACK_OPERATIONS` in `endpoints.py` or `graphql_post_raw()`
+- **Fallback query IDs**: Some operations (CreateRetweet, CreateBookmark, DeleteBookmark, scheduled tweet ops) are not in X.com JS bundles — use `FALLBACK_OPERATIONS` in `endpoints.py` or `graphql_post_raw()`
+- **GET→POST migration**: X.com periodically migrates read endpoints from GET to POST. The client auto-retries as POST on 404 after cache refresh, so no caller changes needed
 - **BookmarkSearchTimeline**: search-only — `rawQuery: ""` triggers `ERROR_EMPTY_QUERY`. Use broad catch-all OR query to fetch all bookmarks
 - **Response paths change**: Always verify actual response structure and add new paths to `_find_instructions()` in `api.py`
 - When adding new endpoints, verify the full variable schema — don't assume optional fields are truly optional
