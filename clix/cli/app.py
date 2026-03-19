@@ -31,7 +31,7 @@ from clix.core.auth import (
     save_auth,
     set_default_account,
 )
-from clix.core.constants import EXIT_AUTH_ERROR, EXIT_ERROR
+from clix.core.constants import EXIT_AUTH_ERROR, EXIT_ERROR, TIMEOUT_HEALTH_CHECK
 from clix.display.formatter import print_error, print_success, print_warning
 
 app = typer.Typer(
@@ -875,7 +875,7 @@ def mute(
         user = get_user_by_handle(client, handle)
         if not user:
             print_error(f"User @{handle} not found")
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_ERROR)
         result = mute_user(client, user.id)
 
     if is_json_mode(json_output):
@@ -897,7 +897,7 @@ def unmute(
         user = get_user_by_handle(client, handle)
         if not user:
             print_error(f"User @{handle} not found")
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_ERROR)
         result = unmute_user(client, user.id)
 
     if is_json_mode(json_output):
@@ -1102,7 +1102,7 @@ def doctor(
         start_t = time.monotonic()
         from curl_cffi import requests as curl_requests
 
-        resp = curl_requests.head("https://x.com", timeout=10)
+        resp = curl_requests.head("https://x.com", timeout=TIMEOUT_HEALTH_CHECK)
         elapsed = int((time.monotonic() - start_t) * 1000)
         if resp.status_code < 400:
             _pass("API connectivity", f"x.com reachable ({elapsed}ms)")

@@ -10,6 +10,18 @@ from typing import Any
 from urllib.parse import urlencode
 
 from clix.core.client import APIError, XClient
+from clix.core.constants import (
+    DEFAULT_COUNT,
+    MAX_PAGINATION_PAGES,
+    REST_BLOCKS_CREATE,
+    REST_BLOCKS_DESTROY,
+    REST_FRIENDSHIPS_CREATE,
+    REST_FRIENDSHIPS_DESTROY,
+    REST_GUIDE,
+    REST_MUTES_CREATE,
+    REST_MUTES_DESTROY,
+    TIMEOUT_UPLOAD,
+)
 from clix.models.dm import DMConversation
 from clix.models.tweet import TimelineResponse, Tweet
 from clix.models.user import User
@@ -364,16 +376,12 @@ def get_bookmark_folders(client: XClient) -> list[dict[str, str]]:
     folders: list[dict[str, str]] = []
     cursor: str | None = None
 
-    for _ in range(10):  # max pages
+    for _ in range(MAX_PAGINATION_PAGES):
         variables: dict[str, Any] = {}
         if cursor:
             variables["cursor"] = cursor
 
-        data = client.graphql_get_raw(
-            "i78YDd0Tza-dV4SYs58kRg",
-            "BookmarkFoldersSlice",
-            variables,
-        )
+        data = client.graphql_get("BookmarkFoldersSlice", variables)
 
         items = (
             data.get("data", {})
@@ -410,7 +418,7 @@ def get_bookmark_folders(client: XClient) -> list[dict[str, str]]:
 def get_bookmark_folder_timeline(
     client: XClient,
     folder_id: str,
-    count: int = 20,
+    count: int = DEFAULT_COUNT,
     cursor: str | None = None,
 ) -> TimelineResponse:
     """Fetch tweets from a bookmark folder."""
@@ -422,11 +430,7 @@ def get_bookmark_folder_timeline(
     if cursor:
         variables["cursor"] = cursor
 
-    data = client.graphql_get_raw(
-        "hNY7X2xE2N7HVF6Qb_mu6w",
-        "BookmarkFolderTimeline",
-        variables,
-    )
+    data = client.graphql_get("BookmarkFolderTimeline", variables)
     return _extract_tweets_from_timeline(data)
 
 
@@ -660,7 +664,7 @@ def upload_media(client: XClient, file_path: str) -> str:
             "media_data": media_data,
         }
     )
-    client.rest_post(UPLOAD_URL, data=append_data, timeout=60)
+    client.rest_post(UPLOAD_URL, data=append_data, timeout=TIMEOUT_UPLOAD)
 
     # Step 3: FINALIZE
     finalize_data = urlencode(
@@ -760,21 +764,19 @@ def create_scheduled_tweet(
         },
         "execute_at": execute_at,
     }
-    return client.graphql_post_raw("LCVzRQGxOaGnOnYH01NQXg", "CreateScheduledTweet", variables)
+    return client.graphql_post("CreateScheduledTweet", variables)
 
 
 def get_scheduled_tweets(client: XClient) -> list[dict[str, Any]]:
     """List all scheduled tweets."""
-    data = client.graphql_post_raw(
-        "ITtjAzvlZni2wWXwf295Qg", "FetchScheduledTweets", {"ascending": True}
-    )
+    data = client.graphql_post("FetchScheduledTweets", {"ascending": True})
     return _parse_scheduled_tweets(data)
 
 
 def delete_scheduled_tweet(client: XClient, scheduled_tweet_id: str) -> dict[str, Any]:
     """Cancel a scheduled tweet."""
     variables: dict[str, Any] = {"scheduled_tweet_id": scheduled_tweet_id}
-    return client.graphql_post_raw("CTOVqej0JBXAZSwkp1US0g", "DeleteScheduledTweet", variables)
+    return client.graphql_post("DeleteScheduledTweet", variables)
 
 
 def _parse_scheduled_tweets(data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -874,7 +876,7 @@ def unbookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:
 def follow_user(client: XClient, user_id: str) -> dict[str, Any]:
     """Follow a user by ID."""
     return client.rest_post(
-        "https://x.com/i/api/1.1/friendships/create.json",
+        REST_FRIENDSHIPS_CREATE,
         data={
             "user_id": user_id,
             "include_profile_interstitial_type": "1",
@@ -885,7 +887,7 @@ def follow_user(client: XClient, user_id: str) -> dict[str, Any]:
 def unfollow_user(client: XClient, user_id: str) -> dict[str, Any]:
     """Unfollow a user by ID."""
     return client.rest_post(
-        "https://x.com/i/api/1.1/friendships/destroy.json",
+        REST_FRIENDSHIPS_DESTROY,
         data={
             "user_id": user_id,
             "include_profile_interstitial_type": "1",
@@ -896,7 +898,7 @@ def unfollow_user(client: XClient, user_id: str) -> dict[str, Any]:
 def block_user(client: XClient, user_id: str) -> dict[str, Any]:
     """Block a user by their user ID."""
     return client.rest_post(
-        "https://x.com/i/api/1.1/blocks/create.json",
+        REST_BLOCKS_CREATE,
         data={"user_id": user_id},
     )
 
@@ -904,7 +906,7 @@ def block_user(client: XClient, user_id: str) -> dict[str, Any]:
 def unblock_user(client: XClient, user_id: str) -> dict[str, Any]:
     """Unblock a user by their user ID."""
     return client.rest_post(
-        "https://x.com/i/api/1.1/blocks/destroy.json",
+        REST_BLOCKS_DESTROY,
         data={"user_id": user_id},
     )
 
@@ -975,7 +977,7 @@ def download_tweet_media(client: XClient, tweet_id: str, output_dir: str = ".") 
 
 def get_trending(client: XClient) -> list[dict[str, Any]]:
     """Get trending topics from the Explore tab."""
-    url = "https://x.com/i/api/2/guide.json"
+    url = REST_GUIDE
     params = {
         "include_page_configuration": "false",
         "initial_tab_id": "trending",
@@ -1208,7 +1210,7 @@ def delete_dm(client: XClient, conversation_id: str, message_id: str) -> dict[st
 def mute_user(client: XClient, user_id: str) -> dict[str, Any]:
     """Mute a user."""
     return client.rest_post(
-        "https://x.com/i/api/1.1/mutes/users/create.json",
+        REST_MUTES_CREATE,
         {"user_id": user_id},
     )
 
@@ -1216,6 +1218,6 @@ def mute_user(client: XClient, user_id: str) -> dict[str, Any]:
 def unmute_user(client: XClient, user_id: str) -> dict[str, Any]:
     """Unmute a user."""
     return client.rest_post(
-        "https://x.com/i/api/1.1/mutes/users/destroy.json",
+        REST_MUTES_DESTROY,
         {"user_id": user_id},
     )

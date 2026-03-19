@@ -16,6 +16,7 @@ from clix.cli.helpers import (
     output_yaml,
     validate_output_flags,
 )
+from clix.core.constants import EXIT_ERROR
 from clix.display.formatter import (
     console,
     format_tweet_list,
@@ -50,7 +51,7 @@ def user_profile(
 
     if not user:
         print_error(f"User @{handle} not found")
-        raise typer.Exit(1)
+        raise typer.Exit(EXIT_ERROR)
 
     compact = is_compact_mode(ctx)
     if compact and json_output:
@@ -86,7 +87,7 @@ def user_tweets(
         user = get_user_by_handle(client, handle)
         if not user:
             print_error(f"User @{handle} not found")
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_ERROR)
 
         response = get_user_tweets(client, user.id, count, include_replies=replies)
 
@@ -124,7 +125,7 @@ def user_likes(
         user = get_user_by_handle(client, handle)
         if not user:
             print_error(f"User @{handle} not found")
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_ERROR)
 
         response = get_user_likes(client, user.id, count)
 
@@ -162,7 +163,7 @@ def user_followers(
         user = get_user_by_handle(client, handle)
         if not user:
             print_error(f"User @{handle} not found")
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_ERROR)
 
         users, _ = get_followers(client, user.id, count)
 
@@ -199,7 +200,7 @@ def user_following(
         user = get_user_by_handle(client, handle)
         if not user:
             print_error(f"User @{handle} not found")
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_ERROR)
 
         users, _ = get_following(client, user.id, count)
 

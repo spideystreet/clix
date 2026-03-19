@@ -17,6 +17,7 @@ from clix.cli.helpers import (
     output_yaml,
     validate_output_flags,
 )
+from clix.core.constants import EXIT_ERROR
 from clix.display.formatter import console, format_article, format_thread, format_tweet
 
 tweet_app = typer.Typer(no_args_is_help=False, invoke_without_command=True)
@@ -50,7 +51,7 @@ def tweet(
             from clix.display.formatter import print_error
 
             print_error(f"Tweet {tweet_id} not found")
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_ERROR)
 
         # Check if this tweet is an article
         article_data = get_article(client, tweet_id)

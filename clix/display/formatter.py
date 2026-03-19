@@ -11,6 +11,14 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
+from clix.core.constants import (
+    DM_PREVIEW_LIMIT,
+    TABLE_MAX_WIDTH,
+    TABLE_MAX_WIDTH_WIDE,
+    THREAD_PREVIEW_LIMIT,
+    THREAD_QUOTE_LIMIT,
+    TWEET_DISPLAY_LIMIT,
+)
 from clix.models.dm import DMConversation, DMMessage
 from clix.models.tweet import Tweet, TweetEngagement
 from clix.models.user import User
@@ -84,7 +92,7 @@ def format_tweet(tweet: Tweet, show_engagement: bool = True, full_text: bool = F
         subtitle = f"replying to @{tweet.reply_to_handle}"
 
     # Tweet text
-    display_text = tweet.text if full_text else _truncate(tweet.text, 280)
+    display_text = tweet.text if full_text else _truncate(tweet.text, TWEET_DISPLAY_LIMIT)
     body = Text(display_text)
 
     # Media indicators
@@ -125,7 +133,9 @@ def format_tweet(tweet: Tweet, show_engagement: bool = True, full_text: bool = F
     if tweet.quoted_tweet:
         content.append(f"\n\u250c\u2500 @{tweet.quoted_tweet.author_handle}: ", style="dim")
         quoted_text = (
-            tweet.quoted_tweet.text if full_text else _truncate(tweet.quoted_tweet.text, 120)
+            tweet.quoted_tweet.text
+            if full_text
+            else _truncate(tweet.quoted_tweet.text, THREAD_QUOTE_LIMIT)
         )
         content.append(quoted_text, style="dim italic")
     if show_engagement and engagement_line.plain:
@@ -227,7 +237,7 @@ def format_thread(tweets: list[Tweet], focal_id: str | None = None) -> None:
         label = Text()
         label.append(f"@{tweet.author_handle}{verified}", style="bold cyan")
         label.append(f" {_relative_time(tweet.created_at)}", style="dim")
-        label.append(f"\n{tweet.text[:200]}", style="white")
+        label.append(f"\n{tweet.text[:THREAD_PREVIEW_LIMIT]}", style="white")
 
         e = tweet.engagement
         if e.likes or e.retweets:
@@ -306,7 +316,7 @@ def format_user_list(users: list[User]) -> None:
     table.add_column("Handle", style="cyan")
     table.add_column("Name", style="white")
     table.add_column("Followers", style="dim")
-    table.add_column("Bio", style="dim", max_width=50)
+    table.add_column("Bio", style="dim", max_width=TABLE_MAX_WIDTH)
 
     for user in users:
         verified = " \u2713" if user.verified else ""
@@ -330,7 +340,7 @@ def format_lists(lists: list[dict]) -> None:
     table.add_column("ID", style="dim")
     table.add_column("Name", style="cyan bold")
     table.add_column("Members", style="white", justify="right")
-    table.add_column("Description", style="dim", max_width=50)
+    table.add_column("Description", style="dim", max_width=TABLE_MAX_WIDTH)
 
     for lst in lists:
         description = lst.get("description", "") or ""
@@ -354,13 +364,13 @@ def format_scheduled_tweets(tweets: list[dict]) -> None:
 
     table = Table(title="Scheduled Tweets", border_style="dim")
     table.add_column("ID", style="cyan")
-    table.add_column("Text", style="white", max_width=50)
+    table.add_column("Text", style="white", max_width=TABLE_MAX_WIDTH)
     table.add_column("Scheduled For", style="yellow")
     table.add_column("State", style="dim")
 
     for tweet in tweets:
         text = tweet.get("text", "")
-        truncated = (text[:47] + "...") if len(text) > 50 else text
+        truncated = _truncate(text, TABLE_MAX_WIDTH)
 
         execute_at = tweet.get("execute_at")
         if execute_at:
@@ -388,7 +398,7 @@ def format_dm_inbox(conversations: list[DMConversation]) -> None:
 
     table = Table(title="DM Inbox", border_style="dim")
     table.add_column("Participants", style="cyan")
-    table.add_column("Last Message", style="white", max_width=60)
+    table.add_column("Last Message", style="white", max_width=TABLE_MAX_WIDTH_WIDE)
     table.add_column("Time", style="dim")
 
     for conv in conversations:
@@ -398,9 +408,7 @@ def format_dm_inbox(conversations: list[DMConversation]) -> None:
         if not handles:
             handles = conv.id
 
-        msg_preview = conv.last_message[:60]
-        if len(conv.last_message) > 60:
-            msg_preview += "..."
+        msg_preview = _truncate(conv.last_message, DM_PREVIEW_LIMIT)
 
         # Convert epoch ms to relative time
         time_str = ""

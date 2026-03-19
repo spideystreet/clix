@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from clix.cli.helpers import get_client, is_json_mode, output_json
+from clix.core.constants import EXIT_ERROR
 from clix.display.formatter import format_dm_inbox, print_error
 
 dm_app = typer.Typer(no_args_is_help=True)
@@ -46,7 +47,7 @@ def send(
         user = get_user_by_handle(client, handle)
         if user is None:
             print_error(f"User @{handle} not found")
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_ERROR)
 
         result = send_dm(client, user.id, text)
 

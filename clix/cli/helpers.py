@@ -14,7 +14,7 @@ from rich.console import Console
 
 from clix.core.auth import AuthError
 from clix.core.config import Config
-from clix.core.constants import EXIT_AUTH_ERROR
+from clix.core.constants import COMPACT_TWEET_TEXT_LIMIT, COMPACT_USER_BIO_LIMIT, EXIT_AUTH_ERROR
 
 console = Console()
 
@@ -63,7 +63,7 @@ def _compact_tweet(tweet: Any) -> dict[str, Any]:
     return {
         "id": tweet.id,
         "author": f"@{tweet.author_handle}",
-        "text": tweet.text[:140],
+        "text": tweet.text[:COMPACT_TWEET_TEXT_LIMIT],
         "likes": tweet.engagement.likes,
         "rts": tweet.engagement.retweets,
         "time": created,
@@ -76,7 +76,7 @@ def _compact_user(user: Any) -> dict[str, Any]:
         "handle": f"@{user.handle}",
         "name": user.name,
         "followers": user.followers_count,
-        "bio": user.bio[:120] if user.bio else "",
+        "bio": user.bio[:COMPACT_USER_BIO_LIMIT] if user.bio else "",
     }
 
 

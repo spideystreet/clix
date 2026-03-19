@@ -33,6 +33,8 @@ from clix.core.constants import (
     SEC_CH_UA_MOBILE,
     SEC_CH_UA_MODEL,
     SEC_CH_UA_PLATFORM_VERSION,
+    TIMEOUT_DEFAULT,
+    TIMEOUT_FETCH,
     best_chrome_target,
     get_accept_language,
     get_sec_ch_ua,
@@ -182,7 +184,7 @@ class XClient:
             # Cache miss — fetch live data
             logger.debug("Transaction cache miss, fetching homepage + ondemand JS")
             headers = generate_headers()
-            home_resp = self.session.get(f"{BASE_URL}/", headers=headers, timeout=15)
+            home_resp = self.session.get(f"{BASE_URL}/", headers=headers, timeout=TIMEOUT_FETCH)
             home_html = home_resp.text
             home_soup = bs4.BeautifulSoup(home_html, "html.parser")
 
@@ -191,7 +193,7 @@ class XClient:
                 logger.warning("Could not extract ondemand JS URL from homepage")
                 return
 
-            ondemand_resp = self.session.get(ondemand_url, headers=headers, timeout=15)
+            ondemand_resp = self.session.get(ondemand_url, headers=headers, timeout=TIMEOUT_FETCH)
             ondemand_text = ondemand_resp.text
 
             self._client_transaction = ClientTransaction(
@@ -320,7 +322,7 @@ class XClient:
                     params=params,
                     json=json_data,
                     data=data,
-                    timeout=30,
+                    timeout=TIMEOUT_DEFAULT,
                 )
 
                 if response.status_code == 200:
@@ -543,7 +545,7 @@ class XClient:
         self,
         url: str,
         data: str | dict[str, str] | None = None,
-        timeout: int = 30,
+        timeout: int = TIMEOUT_DEFAULT,
     ) -> dict[str, Any]:
         """Make an authenticated REST POST request (form-encoded, not GraphQL).
 

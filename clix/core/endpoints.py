@@ -20,6 +20,7 @@ from clix.core.constants import (
     SEC_CH_UA_MOBILE,
     SEC_CH_UA_MODEL,
     SEC_CH_UA_PLATFORM_VERSION,
+    TIMEOUT_FETCH,
     best_chrome_target,
     get_accept_language,
     get_sec_ch_ua,
@@ -39,6 +40,11 @@ FALLBACK_OPERATIONS: dict[str, str] = {
     "DeleteRetweet": "iQtK4dl5hBmXewYZuEOKVw",
     "CreateBookmark": "aoDbu3RHznuiSkQ9aNM67Q",
     "DeleteBookmark": "Wlmlj2-xzyS1GN3a6cj-mQ",
+    "BookmarkFoldersSlice": "i78YDd0Tza-dV4SYs58kRg",
+    "BookmarkFolderTimeline": "hNY7X2xE2N7HVF6Qb_mu6w",
+    "CreateScheduledTweet": "LCVzRQGxOaGnOnYH01NQXg",
+    "FetchScheduledTweets": "ITtjAzvlZni2wWXwf295Qg",
+    "DeleteScheduledTweet": "CTOVqej0JBXAZSwkp1US0g",
 }
 
 # --- Bundle URL patterns ---
@@ -374,7 +380,7 @@ def _fetch_and_extract() -> tuple[dict[str, str], dict[str, bool], dict[str, lis
     # Step 1: Fetch homepage
     logger.info("Fetching X.com homepage to discover JS bundles...")
     try:
-        response = session.get(_HOMEPAGE_URL, headers=headers, timeout=15)
+        response = session.get(_HOMEPAGE_URL, headers=headers, timeout=TIMEOUT_FETCH)
     except Exception as e:
         raise RuntimeError(
             f"Failed to fetch X.com homepage: {e} — "
@@ -403,7 +409,7 @@ def _fetch_and_extract() -> tuple[dict[str, str], dict[str, bool], dict[str, lis
     all_op_features: dict[str, list[str]] = {}
     for url in bundle_urls:
         try:
-            js_response = session.get(url, headers=headers, timeout=15)
+            js_response = session.get(url, headers=headers, timeout=TIMEOUT_FETCH)
         except Exception as e:
             logger.warning("Failed to download bundle %s: %s — skipping", url, e)
             continue

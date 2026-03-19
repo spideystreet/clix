@@ -130,6 +130,7 @@ from clix.core.api import (
 )
 from clix.core.auth import AuthError, get_credentials
 from clix.core.client import RateLimitError, StaleEndpointError, XClient
+from clix.core.constants import DEFAULT_COUNT, MCP_RETRY_RATE_LIMIT, MCP_RETRY_STALE_ENDPOINT
 
 mcp = FastMCP(
     "clix", instructions="Twitter/X CLI tool — read and write tweets, search, manage bookmarks."
@@ -149,10 +150,10 @@ def _error_response(error: Exception) -> str:
     # Retry guidance for agentic consumers
     if isinstance(error, RateLimitError):
         response["retry"] = True
-        response["retry_after_seconds"] = 60
+        response["retry_after_seconds"] = MCP_RETRY_RATE_LIMIT
     elif isinstance(error, StaleEndpointError):
         response["retry"] = True
-        response["retry_after_seconds"] = 5
+        response["retry_after_seconds"] = MCP_RETRY_STALE_ENDPOINT
     elif isinstance(error, AuthError):
         response["retry"] = False
     return json.dumps(response, default=str)
@@ -171,7 +172,7 @@ def _serialize(obj: object) -> str:
 
 
 @mcp.tool()
-def get_feed(type: str = "for-you", count: int = 20, cursor: str | None = None) -> str:
+def get_feed(type: str = "for-you", count: int = DEFAULT_COUNT, cursor: str | None = None) -> str:
     """Fetch the home timeline.
 
     Args:
@@ -188,7 +189,9 @@ def get_feed(type: str = "for-you", count: int = 20, cursor: str | None = None) 
 
 
 @mcp.tool()
-def search(query: str, type: str = "Top", count: int = 20, cursor: str | None = None) -> str:
+def search(
+    query: str, type: str = "Top", count: int = DEFAULT_COUNT, cursor: str | None = None
+) -> str:
     """Search for tweets.
 
     Args:
@@ -275,7 +278,7 @@ def get_user(handle: str) -> str:
 
 
 @mcp.tool()
-def list_bookmarks(count: int = 20, cursor: str | None = None) -> str:
+def list_bookmarks(count: int = DEFAULT_COUNT, cursor: str | None = None) -> str:
     """Fetch bookmarked tweets.
 
     Args:
@@ -302,7 +305,9 @@ def get_bookmark_folders() -> str:
 
 
 @mcp.tool()
-def get_bookmark_folder_timeline(folder_id: str, count: int = 20, cursor: str | None = None) -> str:
+def get_bookmark_folder_timeline(
+    folder_id: str, count: int = DEFAULT_COUNT, cursor: str | None = None
+) -> str:
     """Fetch tweets from a bookmark folder.
 
     Args:
@@ -335,7 +340,7 @@ def get_lists() -> str:
 
 
 @mcp.tool()
-def get_list_timeline(list_id: str, count: int = 20, cursor: str | None = None) -> str:
+def get_list_timeline(list_id: str, count: int = DEFAULT_COUNT, cursor: str | None = None) -> str:
     """Fetch tweets from a list.
 
     Args:
@@ -401,7 +406,7 @@ def get_users_batch(handles: list[str]) -> str:
 
 
 @mcp.tool()
-def get_user_tweets(handle: str, count: int = 20, cursor: str | None = None) -> str:
+def get_user_tweets(handle: str, count: int = DEFAULT_COUNT, cursor: str | None = None) -> str:
     """Get tweets posted by a user. Returns tweets and pagination cursor.
 
     Args:
@@ -421,7 +426,7 @@ def get_user_tweets(handle: str, count: int = 20, cursor: str | None = None) -> 
 
 
 @mcp.tool()
-def get_user_likes(handle: str, count: int = 20, cursor: str | None = None) -> str:
+def get_user_likes(handle: str, count: int = DEFAULT_COUNT, cursor: str | None = None) -> str:
     """Get tweets liked by a user. Returns tweets and pagination cursor.
 
     Args:
@@ -441,7 +446,7 @@ def get_user_likes(handle: str, count: int = 20, cursor: str | None = None) -> s
 
 
 @mcp.tool()
-def get_followers(handle: str, count: int = 20, cursor: str | None = None) -> str:
+def get_followers(handle: str, count: int = DEFAULT_COUNT, cursor: str | None = None) -> str:
     """Get followers of a user. Returns users and pagination cursor.
 
     Args:
@@ -467,7 +472,7 @@ def get_followers(handle: str, count: int = 20, cursor: str | None = None) -> st
 
 
 @mcp.tool()
-def get_following(handle: str, count: int = 20, cursor: str | None = None) -> str:
+def get_following(handle: str, count: int = DEFAULT_COUNT, cursor: str | None = None) -> str:
     """Get users followed by a user. Returns users and pagination cursor.
 
     Args:
@@ -808,7 +813,7 @@ def remove_list_member(list_id: str, user_id: str) -> str:
 
 
 @mcp.tool()
-def get_list_members(list_id: str, count: int = 20, cursor: str | None = None) -> str:
+def get_list_members(list_id: str, count: int = DEFAULT_COUNT, cursor: str | None = None) -> str:
     """Fetch members of a list.
 
     Args:
