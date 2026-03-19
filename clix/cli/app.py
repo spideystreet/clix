@@ -1097,12 +1097,15 @@ def doctor(
     except Exception as e:
         _fail("Endpoint cache", str(e))
 
-    # 6. API connectivity
+    # 6. API connectivity (use Session + Chrome impersonation like the real client)
     try:
         start_t = time.monotonic()
         from curl_cffi import requests as curl_requests
 
-        resp = curl_requests.head("https://x.com", timeout=10)
+        target = best_chrome_target()
+        session = curl_requests.Session(impersonate=target)
+        resp = session.get("https://x.com", timeout=10)
+        session.close()
         elapsed = int((time.monotonic() - start_t) * 1000)
         if resp.status_code < 400:
             _pass("API connectivity", f"x.com reachable ({elapsed}ms)")
