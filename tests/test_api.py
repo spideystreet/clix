@@ -698,10 +698,50 @@ class TestParseTweetVolume:
 
 
 class TestParseTrends:
-    """Verify trend parsing from guide.json-like responses."""
+    """Verify trend parsing from ExplorePage and legacy guide.json responses."""
+
+    def _make_explore_response(self, entries: list) -> dict:
+        """Build a minimal ExplorePage GraphQL response."""
+        return {
+            "data": {
+                "explore_page": {
+                    "body": {
+                        "initialTimeline": {
+                            "timeline": {
+                                "timeline": {
+                                    "instructions": [{"entries": entries}],
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def _make_explore_trend_entry(
+        self,
+        name: str,
+        social_text: str = "",
+        url: str = "",
+    ) -> dict:
+        """Build a trend entry in ExplorePage format (TimelineTrend)."""
+        item_content: dict = {
+            "__typename": "TimelineTrend",
+            "itemType": "TimelineTrend",
+            "name": name,
+        }
+        if social_text:
+            item_content["social_context"] = {"text": social_text}
+        if url:
+            item_content["trend_metadata"] = {"url": {"url": url}}
+        return {
+            "content": {
+                "items": [{"item": {"itemContent": item_content}}],
+            },
+        }
 
     def _make_guide_response(self, entries: list) -> dict:
-        """Build a minimal guide.json-shaped response."""
+        """Build a minimal legacy guide.json-shaped response."""
         return {
             "timeline": {
                 "instructions": [
@@ -710,14 +750,14 @@ class TestParseTrends:
             }
         }
 
-    def _make_trend_entry(
+    def _make_legacy_trend_entry(
         self,
         name: str,
         meta_description: str | None = None,
         url: str = "",
         context_text: str = "",
     ) -> dict:
-        """Build a single trend entry inside a module."""
+        """Build a trend entry in legacy guide.json format."""
         trend: dict = {"name": name}
         if meta_description:
             trend["trendMetadata"] = {"metaDescription": meta_description}
@@ -736,108 +776,130 @@ class TestParseTrends:
             },
         }
 
-    def test_single_trend_extracted(self):
-        """A single trend entry should be extracted."""
-        entry = self._make_trend_entry("Python", "10K posts")
+    # --- ExplorePage format tests ---
+
+    def test_explore_single_trend(self):
+        """A single trend from ExplorePage is extracted."""
+        entry = self._make_explore_trend_entry("Python", "Trending · 10K posts")
+        result = _parse_trends(self._make_explore_response([entry]))
+        assert len(result) == 1
+        assert result[0]["name"] == "Python"
+        assert result[0]["tweet_count"] == 10000
+
+    def test_explore_multiple_trends(self):
+        """Multiple trends from ExplorePage are all extracted."""
+        entries = [
+            self._make_explore_trend_entry("Python"),
+            self._make_explore_trend_entry("Rust"),
+        ]
+        result = _parse_trends(self._make_explore_response(entries))
+        assert len(result) == 2
+        assert {t["name"] for t in result} == {"Python", "Rust"}
+
+    def test_explore_trend_with_url(self):
+        """Trend URL is extracted from trend_metadata."""
+        entry = self._make_explore_trend_entry("AI", url="twitter://trending/123")
+        result = _parse_trends(self._make_explore_response([entry]))
+        assert result[0]["url"] == "twitter://trending/123"
+
+    def test_explore_trend_without_volume(self):
+        """Trend without social context has tweet_count=None."""
+        entry = self._make_explore_trend_entry("NoVolume")
+        result = _parse_trends(self._make_explore_response([entry]))
+        assert result[0]["tweet_count"] is None
+
+    def test_explore_empty_response(self):
+        """Empty ExplorePage returns empty list."""
+        result = _parse_trends(self._make_explore_response([]))
+        assert result == []
+
+    # --- Legacy guide.json format tests ---
+
+    def test_legacy_single_trend(self):
+        """A single trend from guide.json is extracted."""
+        entry = self._make_legacy_trend_entry("Python", "10K posts")
         result = _parse_trends(self._make_guide_response([entry]))
         assert len(result) == 1
         assert result[0]["name"] == "Python"
         assert result[0]["tweet_count"] == 10000
 
-    def test_multiple_trends(self):
-        """Multiple trend entries should all be extracted."""
-        entries = [
-            self._make_trend_entry("Python"),
-            self._make_trend_entry("Rust"),
-        ]
-        result = _parse_trends(self._make_guide_response(entries))
-        assert len(result) == 2
-        names = {t["name"] for t in result}
-        assert names == {"Python", "Rust"}
-
-    def test_trend_with_context(self):
-        """Trend context text should be captured."""
-        entry = self._make_trend_entry("Python", context_text="Technology")
+    def test_legacy_trend_with_context(self):
+        """Trend context text from guide.json is captured."""
+        entry = self._make_legacy_trend_entry("Python", context_text="Technology")
         result = _parse_trends(self._make_guide_response([entry]))
         assert result[0]["context"] == "Technology"
 
-    def test_trend_with_url(self):
-        """Trend URL should be captured."""
-        entry = self._make_trend_entry("Python", url="/search?q=Python")
+    def test_legacy_trend_with_url(self):
+        """Trend URL from guide.json is captured."""
+        entry = self._make_legacy_trend_entry("Python", url="/search?q=Python")
         result = _parse_trends(self._make_guide_response([entry]))
         assert result[0]["url"] == "/search?q=Python"
 
-    def test_empty_response(self):
-        """Empty guide response should return empty list."""
-        result = _parse_trends({"timeline": {"instructions": []}})
-        assert result == []
+    def test_missing_data(self):
+        """Completely empty response returns empty list."""
+        assert _parse_trends({}) == []
 
-    def test_missing_timeline(self):
-        """Response without timeline key should return empty list."""
-        result = _parse_trends({})
-        assert result == []
-
-    def test_trend_without_volume(self):
-        """Trend without tweet volume should have tweet_count=None."""
-        entry = self._make_trend_entry("Python")
+    def test_legacy_trend_without_volume(self):
+        """Legacy trend without volume has tweet_count=None."""
+        entry = self._make_legacy_trend_entry("Python")
         result = _parse_trends(self._make_guide_response([entry]))
         assert result[0]["tweet_count"] is None
 
 
 class TestGetTrending:
-    """Verify get_trending calls the REST API correctly."""
+    """Verify get_trending calls the GraphQL API correctly."""
 
-    def test_calls_rest_get(self):
-        """get_trending should call client.rest_get with guide.json URL."""
+    def test_calls_graphql_get(self):
+        """get_trending should call graphql_get with ExplorePage."""
         client = MagicMock()
-        client.rest_get.return_value = {"timeline": {"instructions": []}}
+        client.graphql_get.return_value = {
+            "data": {
+                "explore_page": {
+                    "body": {"initialTimeline": {"timeline": {"timeline": {"instructions": []}}}}
+                }
+            }
+        }
 
         get_trending(client)
 
-        client.rest_get.assert_called_once()
-        url = client.rest_get.call_args[0][0]
-        assert "guide.json" in url
-
-    def test_passes_trending_tab(self):
-        """get_trending should request the trending tab."""
-        client = MagicMock()
-        client.rest_get.return_value = {"timeline": {"instructions": []}}
-
-        get_trending(client)
-
-        params = client.rest_get.call_args[1].get("params") or client.rest_get.call_args[0][1]
-        assert params["initial_tab_id"] == "trending"
+        client.graphql_get.assert_called_once()
+        operation = client.graphql_get.call_args[0][0]
+        assert operation == "ExplorePage"
 
     def test_returns_parsed_trends(self):
         """get_trending should return parsed trend list."""
         client = MagicMock()
-        client.rest_get.return_value = {
-            "timeline": {
-                "instructions": [
-                    {
-                        "entries": [
-                            {
-                                "content": {
-                                    "items": [
-                                        {
-                                            "item": {
-                                                "content": {
-                                                    "trend": {"name": "#TestTrend"},
-                                                }
-                                            }
-                                        }
-                                    ],
+        trend_item = {
+            "item": {
+                "itemContent": {
+                    "__typename": "TimelineTrend",
+                    "name": "#TestTrend",
+                    "social_context": {"text": "5K posts"},
+                }
+            }
+        }
+        client.graphql_get.return_value = {
+            "data": {
+                "explore_page": {
+                    "body": {
+                        "initialTimeline": {
+                            "timeline": {
+                                "timeline": {
+                                    "instructions": [
+                                        {"entries": [{"content": {"items": [trend_item]}}]}
+                                    ]
                                 }
                             }
-                        ]
+                        }
                     }
-                ]
+                }
             }
         }
 
         result = get_trending(client)
         assert len(result) == 1
         assert result[0]["name"] == "#TestTrend"
+        assert result[0]["tweet_count"] == 5000
 
 
 class TestTrendingCLI:
