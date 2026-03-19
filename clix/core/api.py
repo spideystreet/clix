@@ -22,6 +22,7 @@ from clix.core.constants import (
     REST_MUTES_DESTROY,
     TIMEOUT_UPLOAD,
 )
+from clix.core.endpoints import FALLBACK_OPERATIONS
 from clix.models.dm import DMConversation
 from clix.models.tweet import TimelineResponse, Tweet
 from clix.models.user import User
@@ -381,7 +382,11 @@ def get_bookmark_folders(client: XClient) -> list[dict[str, str]]:
         if cursor:
             variables["cursor"] = cursor
 
-        data = client.graphql_get("BookmarkFoldersSlice", variables)
+        data = client.graphql_get_raw(
+            FALLBACK_OPERATIONS["BookmarkFoldersSlice"],
+            "BookmarkFoldersSlice",
+            variables,
+        )
 
         items = (
             data.get("data", {})
@@ -430,7 +435,11 @@ def get_bookmark_folder_timeline(
     if cursor:
         variables["cursor"] = cursor
 
-    data = client.graphql_get("BookmarkFolderTimeline", variables)
+    data = client.graphql_get_raw(
+        FALLBACK_OPERATIONS["BookmarkFolderTimeline"],
+        "BookmarkFolderTimeline",
+        variables,
+    )
     return _extract_tweets_from_timeline(data)
 
 
@@ -764,19 +773,25 @@ def create_scheduled_tweet(
         },
         "execute_at": execute_at,
     }
-    return client.graphql_post("CreateScheduledTweet", variables)
+    return client.graphql_post_raw(
+        FALLBACK_OPERATIONS["CreateScheduledTweet"], "CreateScheduledTweet", variables
+    )
 
 
 def get_scheduled_tweets(client: XClient) -> list[dict[str, Any]]:
     """List all scheduled tweets."""
-    data = client.graphql_post("FetchScheduledTweets", {"ascending": True})
+    data = client.graphql_post_raw(
+        FALLBACK_OPERATIONS["FetchScheduledTweets"], "FetchScheduledTweets", {"ascending": True}
+    )
     return _parse_scheduled_tweets(data)
 
 
 def delete_scheduled_tweet(client: XClient, scheduled_tweet_id: str) -> dict[str, Any]:
     """Cancel a scheduled tweet."""
     variables: dict[str, Any] = {"scheduled_tweet_id": scheduled_tweet_id}
-    return client.graphql_post("DeleteScheduledTweet", variables)
+    return client.graphql_post_raw(
+        FALLBACK_OPERATIONS["DeleteScheduledTweet"], "DeleteScheduledTweet", variables
+    )
 
 
 def _parse_scheduled_tweets(data: dict[str, Any]) -> list[dict[str, Any]]:
