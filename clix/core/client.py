@@ -400,11 +400,18 @@ class XClient:
         features: dict[str, Any] | None = None,
         field_toggles: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make a GraphQL request with auto-retry on stale endpoint IDs."""
+        """Make a GraphQL request with auto-retry on stale endpoint IDs.
+
+        Retry strategy for GET requests:
+        1. Try GET with current cache
+        2. On 404: invalidate cache, retry GET with fresh IDs
+        3. On second 404: fall back to POST (X.com migrates endpoints)
+        """
         resolved_features = features if features is not None else get_op_features(operation)
         resolved_toggles = field_toggles if field_toggles is not None else DEFAULT_FIELD_TOGGLES
+        current_method = method
 
-        for attempt in range(2):
+        for attempt in range(3):
             endpoints = get_graphql_endpoints()
             endpoint = endpoints.get(operation)
             if not endpoint:
@@ -415,7 +422,7 @@ class XClient:
                 )
             url = f"{GRAPHQL_BASE}/{endpoint}"
 
-            if method == "GET":
+            if current_method == "GET":
                 kwargs: dict[str, Any] = {
                     "params": {
                         "variables": json.dumps(variables),
@@ -433,8 +440,8 @@ class XClient:
                 }
 
             try:
-                result = self._request(method, url, **kwargs)
-                delay() if method == "GET" else write_delay()
+                result = self._request(current_method, url, **kwargs)
+                delay() if current_method == "GET" else write_delay()
                 return result
             except StaleEndpointError:
                 if attempt == 0:
@@ -447,9 +454,18 @@ class XClient:
                     if features is None:
                         resolved_features = get_op_features(operation)
                     continue
+                if attempt == 1 and method == "GET":
+                    logger.warning(
+                        "HTTP 404 for '%s' persists after cache refresh — "
+                        "falling back to POST (endpoint may have migrated)",
+                        operation,
+                    )
+                    current_method = "POST"
+                    continue
                 raise APIError(
                     f"GraphQL endpoint '{operation}' not found (HTTP 404) "
-                    f"even after cache refresh — X.com may have removed this operation",
+                    f"even after cache refresh and POST fallback — "
+                    f"X.com may have removed this operation",
                     status_code=404,
                 )
             except APIError as e:
