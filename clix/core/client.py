@@ -324,7 +324,22 @@ class XClient:
                 )
 
                 if response.status_code == 200:
-                    return response.json()
+                    data = response.json()
+                    # X GraphQL can return HTTP 200 with application-level
+                    # errors in the body (e.g. code 104 "not allowed").
+                    # Only raise when there is no data — some responses
+                    # include both warnings and valid data.
+                    errors = data.get("errors") if isinstance(data, dict) else None
+                    if errors and not data.get("data"):
+                        first = errors[0]
+                        code = first.get("code", 0)
+                        msg = first.get("message", "Unknown error")
+                        raise APIError(
+                            f"API error (code {code}): {msg}",
+                            status_code=200,
+                            response_data=data,
+                        )
+                    return data
                 elif response.status_code == 401:
                     refreshed = self._try_refresh_credentials()
                     if refreshed:

@@ -184,3 +184,70 @@ class TestRequestAuthRefresh:
                     assert "Forbidden" in str(e)
         finally:
             patcher.stop()
+
+
+class TestApplicationLevelErrors:
+    """HTTP 200 responses with errors in body must raise APIError."""
+
+    def _make_client_with_mock_session(self, responses):
+        """Create a client with a mocked session returning given responses."""
+        creds = _make_creds()
+        client = XClient(credentials=creds)
+        client._transaction_init_attempted = True
+
+        mock_session = MagicMock()
+        mock_session.request.side_effect = responses
+
+        patcher = patch.object(
+            type(client), "session", new_callable=PropertyMock, return_value=mock_session
+        )
+        patcher.start()
+        return client, mock_session, patcher
+
+    def test_200_with_errors_and_no_data_raises_api_error(self):
+        """X returns HTTP 200 with {"errors": [...]} and no data — must raise."""
+        import pytest
+
+        from clix.core.client import APIError
+
+        error_body = {
+            "errors": [{"code": 104, "message": "You aren't allowed to add members to this list"}]
+        }
+        mock_200 = MagicMock(status_code=200)
+        mock_200.json.return_value = error_body
+
+        client, _, patcher = self._make_client_with_mock_session([mock_200])
+        try:
+            with pytest.raises(APIError, match="code 104"):
+                client._request("POST", "https://api.x.com/graphql/test")
+        finally:
+            patcher.stop()
+
+    def test_200_with_errors_and_data_returns_normally(self):
+        """Some X responses include both errors (warnings) and data — don't raise."""
+        response_body = {
+            "data": {"create_tweet": {"tweet_results": {"result": {"id": "123"}}}},
+            "errors": [{"message": "Some non-fatal warning"}],
+        }
+        mock_200 = MagicMock(status_code=200)
+        mock_200.json.return_value = response_body
+
+        client, _, patcher = self._make_client_with_mock_session([mock_200])
+        try:
+            result = client._request("POST", "https://api.x.com/graphql/test")
+            assert result == response_body
+        finally:
+            patcher.stop()
+
+    def test_200_without_errors_returns_normally(self):
+        """Normal successful response — no errors key."""
+        response_body = {"data": {"user": {"id": "123"}}}
+        mock_200 = MagicMock(status_code=200)
+        mock_200.json.return_value = response_body
+
+        client, _, patcher = self._make_client_with_mock_session([mock_200])
+        try:
+            result = client._request("POST", "https://api.x.com/graphql/test")
+            assert result == response_body
+        finally:
+            patcher.stop()
