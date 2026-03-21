@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.markdown import Markdown as RichMarkdown
@@ -14,6 +15,9 @@ from rich.tree import Tree
 from clix.models.dm import DMConversation, DMMessage
 from clix.models.tweet import Tweet, TweetEngagement
 from clix.models.user import User
+
+if TYPE_CHECKING:
+    from clix.models.job import Job
 
 console = Console()
 
@@ -463,6 +467,65 @@ def format_dm_messages(messages: list[DMMessage]) -> None:
         console.print(header)
         console.print(f"  {msg.text}")
         console.print()
+
+
+def format_job_list(jobs: list[Job]) -> None:
+    """Print job listings as a rich Table."""
+
+    if not jobs:
+        console.print("[dim]No jobs found.[/dim]")
+        return
+
+    table = Table(title="Job Listings", border_style="dim")
+    table.add_column("Company", style="bold cyan", max_width=20)
+    table.add_column("Title", style="white", max_width=40)
+    table.add_column("Location", style="dim", max_width=30)
+    table.add_column("Salary", style="green", max_width=15)
+    table.add_column("ID", style="dim", max_width=22)
+
+    for job in jobs:
+        salary = job.formatted_salary or ""
+        location = _truncate(job.location, 30)
+        title = _truncate(job.title, 40)
+        table.add_row(job.company.name, title, location, salary, job.id)
+
+    console.print(table)
+
+
+def format_job_detail(job: Job) -> None:
+    """Print detailed job information as a rich Panel."""
+
+    content = Text()
+
+    content.append(job.company.name, style="bold cyan")
+    if job.team:
+        content.append(f" — {job.team}", style="dim")
+    content.append("\n\n")
+
+    if job.location:
+        content.append("Location: ", style="bold")
+        content.append(job.location)
+        if job.location_type:
+            content.append(f" ({job.location_type})", style="dim")
+        content.append("\n")
+
+    if job.formatted_salary:
+        content.append("Salary: ", style="bold")
+        content.append(job.formatted_salary, style="green")
+        content.append("\n")
+
+    if job.redirect_url:
+        content.append("Apply: ", style="bold")
+        content.append(job.redirect_url, style="underline blue")
+        content.append("\n")
+
+    panel = Panel(content, title=job.title, border_style="blue", expand=False)
+    console.print(panel)
+
+    if job.description:
+        console.print()
+        md = RichMarkdown(job.description)
+        console.print(md)
 
 
 def print_success(message: str) -> None:
