@@ -6,8 +6,11 @@ import base64
 import mimetypes
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
+
+if TYPE_CHECKING:
+    from clix.models.job import Job, JobSearchResponse
 
 from clix.core.client import APIError, XClient
 from clix.models.dm import DMConversation
@@ -1257,3 +1260,97 @@ def unmute_user(client: XClient, user_id: str) -> dict[str, Any]:
         "https://x.com/i/api/1.1/mutes/users/destroy.json",
         {"user_id": user_id},
     )
+
+
+# =============================================================================
+# Job search
+# =============================================================================
+
+_JOB_SEARCH_QUERY_ID = "jVMK9qcOUB5xQQdSLr5ECg"
+_JOB_DETAIL_QUERY_ID = "8uZH_OBKTFNIMzTJaV5lbQ"
+
+
+def search_jobs(
+    client: XClient,
+    keyword: str = "",
+    location: str = "",
+    location_type: list[str] | None = None,
+    employment_type: list[str] | None = None,
+    seniority_level: list[str] | None = None,
+    company: str = "",
+    industry: str = "",
+    count: int = 25,
+    cursor: str | None = None,
+) -> JobSearchResponse:
+    """Search for job listings on X/Twitter.
+
+    Args:
+        client: Authenticated XClient instance.
+        keyword: Search keyword (e.g. "data engineer").
+        location: Location filter (e.g. "Paris").
+        location_type: Location type filters (e.g. ["remote", "onsite", "hybrid"]).
+        employment_type: Employment type filters (e.g. ["full_time", "contract"]).
+        seniority_level: Seniority level filters (e.g. ["entry_level", "mid_level", "senior"]).
+        company: Company name filter.
+        industry: Industry filter.
+        count: Number of results per page (max 25).
+        cursor: Pagination cursor from previous response.
+    """
+    from clix.models.job import Job, JobSearchResponse
+
+    variables = {
+        "count": min(count, 25),
+        "cursor": cursor,
+        "searchParams": {
+            "keyword": keyword,
+            "job_location_id": None,
+            "job_location": location or None,
+            "job_location_type": location_type or [],
+            "seniority_level": seniority_level or [],
+            "company_name": company or None,
+            "employment_type": employment_type or [],
+            "industry": industry or None,
+        },
+    }
+
+    data = client.graphql_get_raw(
+        _JOB_SEARCH_QUERY_ID,
+        "JobSearchQueryScreenJobsQuery",
+        variables,
+    )
+
+    job_search = data.get("data", {}).get("job_search", {})
+    items = job_search.get("items_results", [])
+
+    jobs: list[Job] = []
+    for item in items:
+        job = Job.from_search_result(item)
+        if job:
+            jobs.append(job)
+
+    next_cursor = job_search.get("slice_info", {}).get("next_cursor")
+
+    return JobSearchResponse(jobs=jobs, next_cursor=next_cursor)
+
+
+def get_job_detail(client: XClient, job_id: str) -> Job | None:
+    """Get detailed information about a specific job listing.
+
+    Args:
+        client: Authenticated XClient instance.
+        job_id: The job listing ID.
+    """
+    from clix.models.job import Job
+
+    variables = {
+        "jobId": job_id,
+        "loggedIn": True,
+    }
+
+    data = client.graphql_get_raw(
+        _JOB_DETAIL_QUERY_ID,
+        "JobScreenQuery",
+        variables,
+    )
+
+    return Job.from_detail_result(data)

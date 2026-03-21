@@ -1162,6 +1162,7 @@ def _register_subcommands() -> None:
     """Register subcommand groups."""
     from clix.cli.dm import dm_app
     from clix.cli.feed import feed_app
+    from clix.cli.jobs import jobs_app
     from clix.cli.lists import lists_app
     from clix.cli.search import register_search
     from clix.cli.tweet import tweet_app
@@ -1173,6 +1174,7 @@ def _register_subcommands() -> None:
     app.add_typer(user_app, name="user", help="View user profiles")
     app.add_typer(lists_app, name="lists", help="Manage lists")
     app.add_typer(dm_app, name="dm", help="Direct messages")
+    app.add_typer(jobs_app, name="jobs", help="Search job listings")
 
 
 _register_subcommands()

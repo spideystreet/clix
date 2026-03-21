@@ -62,12 +62,14 @@ class TestMcpToolRegistration:
             "unpin_list",
             "dm_inbox",
             "dm_send",
+            "search_jobs",
+            "get_job",
         }
         assert _tool_names() == expected
 
     def test_tool_count(self):
-        """Exactly 44 tools should be registered."""
-        assert len(_tool_names()) == 44
+        """Exactly 46 tools should be registered."""
+        assert len(_tool_names()) == 46
 
     def test_read_tools_present(self):
         """Read tools should be registered."""
