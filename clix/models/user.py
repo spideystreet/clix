@@ -40,6 +40,7 @@ class User(BaseModel):
     def from_api_result(cls, result: dict[str, Any]) -> User | None:
         """Parse a user from Twitter API GraphQL result."""
         try:
+            core_user = result.get("core", {})
             legacy = result.get("legacy", {})
             rest_id = result.get("rest_id", "")
 
@@ -47,7 +48,7 @@ class User(BaseModel):
                 return None
 
             created_at = None
-            raw_date = legacy.get("created_at")
+            raw_date = core_user.get("created_at", legacy.get("created_at"))
             if raw_date:
                 try:
                     created_at = datetime.strptime(raw_date, "%a %b %d %H:%M:%S %z %Y")
@@ -60,14 +61,27 @@ class User(BaseModel):
             if urls:
                 website = urls[0].get("expanded_url", urls[0].get("url", ""))
 
+            # Location moved to result.location.location
+            location = result.get("location", {}).get("location", legacy.get("location", ""))
+
             pinned = legacy.get("pinned_tweet_ids_str", [])
+
+            # Avatar moved to result.avatar.image_url
+            avatar_url = result.get("avatar", {}).get(
+                "image_url", legacy.get("profile_image_url_https", "")
+            )
+
+            # Bio: prefer legacy (has full text), fallback to profile_bio
+            bio = legacy.get("description", "")
+            if not bio:
+                bio = result.get("profile_bio", {}).get("description", "")
 
             return cls(
                 id=rest_id,
-                name=legacy.get("name", ""),
-                handle=legacy.get("screen_name", ""),
-                bio=legacy.get("description", ""),
-                location=legacy.get("location", ""),
+                name=core_user.get("name", legacy.get("name", "")),
+                handle=core_user.get("screen_name", legacy.get("screen_name", "")),
+                bio=bio,
+                location=location,
                 website=website,
                 verified=result.get("is_blue_verified", False),
                 followers_count=legacy.get("followers_count", 0),
@@ -75,9 +89,7 @@ class User(BaseModel):
                 tweet_count=legacy.get("statuses_count", 0),
                 listed_count=legacy.get("listed_count", 0),
                 created_at=created_at,
-                profile_image_url=legacy.get("profile_image_url_https", "").replace(
-                    "_normal", "_400x400"
-                ),
+                profile_image_url=avatar_url.replace("_normal", "_400x400"),
                 profile_banner_url=legacy.get("profile_banner_url", ""),
                 pinned_tweet_id=pinned[0] if pinned else None,
             )

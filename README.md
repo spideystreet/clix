@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/e7c0c8af-ae61-4a85-8aef-32a8367f505b" alt="clix" width="120">
 </p>
 
-<h3 align="center"><b>X from terminal. No API keys. No bullshit.</b></h3>
+<h3 align="center"><b>X from terminal. Built for humans and AI agents. No API keys.</b></h3>
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
@@ -14,8 +14,9 @@
 
 ## Why?
 
-Twitter killed free API access. clix uses **cookie-based auth** — just log in with your browser, and you're in.
-Works for humans (rich terminal output) and AI agents (structured JSON). Zero API keys, zero OAuth dance.
+Twitter killed free API access. clix uses **cookie-based auth** — just log in with your browser, and you're in. Zero API keys, zero OAuth dance.
+
+Three interfaces, one tool: **rich terminal output** for humans, **`--json`/`--yaml`/`--compact`** for scripts, and a built-in **MCP server** for AI agents.
 
 ## Quick Start
 
@@ -41,12 +42,14 @@ clix auth login
 | `clix user <handle>` | Profile + recent tweets |
 | `clix users <handle1> <handle2> ...` | Batch fetch users |
 | `clix bookmarks` | List bookmarks |
+| `clix bookmarks-folders` | List bookmark folders |
+| `clix bookmarks-folder <id>` | View tweets in a bookmark folder |
 
 ### Actions
 
 | Command | Description |
 |---|---|
-| `clix post <text> [--reply-to ID] [--image FILE]` | Post a tweet (up to 4 images) |
+| `clix post <text> [--reply-to ID\|URL] [--image FILE]` | Post a tweet (up to 4 images) |
 | `clix delete <id>` | Delete a tweet |
 | `clix like <id>` / `clix unlike <id>` | Like / unlike |
 | `clix retweet <id>` / `clix unretweet <id>` | Retweet / undo |
@@ -75,6 +78,7 @@ clix auth login
 | `clix lists members <id>` | View members |
 | `clix lists add-member <id> <handle>` | Add member |
 | `clix lists remove-member <id> <handle>` | Remove member |
+| `clix lists pin <id>` / `clix lists unpin <id>` | Pin / unpin list |
 
 ### Direct Messages
 

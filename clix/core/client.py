@@ -15,7 +15,13 @@ from curl_cffi import requests as curl_requests
 from x_client_transaction import ClientTransaction
 from x_client_transaction.utils import generate_headers, get_ondemand_file_url
 
-from clix.core.auth import AuthCredentials, AuthError, get_credentials
+from clix.core.auth import (
+    AuthCredentials,
+    AuthError,
+    extract_cookies_from_browser,
+    get_credentials,
+    save_auth,
+)
 from clix.core.constants import (
     BASE_URL,
     BEARER_TOKEN,
@@ -125,6 +131,7 @@ class XClient:
         self._session: curl_requests.Session | None = None
         self._client_transaction: ClientTransaction | None = None
         self._transaction_init_attempted: bool = False
+        self._auth_refresh_attempted: bool = False
 
     @property
     def credentials(self) -> AuthCredentials:
@@ -258,6 +265,31 @@ class XClient:
         cookies["ct0"] = creds.ct0
         return cookies
 
+    def _try_refresh_credentials(self) -> bool:
+        """Try to refresh credentials from browser cookies on auth failure.
+
+        Returns True if credentials were successfully refreshed.
+        """
+        if self._auth_refresh_attempted:
+            return False
+        self._auth_refresh_attempted = True
+
+        logger.info("Auth failed, attempting to refresh cookies from browser")
+        try:
+            creds = extract_cookies_from_browser()
+            if creds and creds.is_valid:
+                self._credentials = creds
+                save_auth(creds, self._account or "default")
+                # Reset session to avoid X rejecting the tainted TLS connection
+                if self._session is not None:
+                    self._session.close()
+                    self._session = None
+                logger.info("Credentials refreshed from browser")
+                return True
+        except Exception:
+            logger.debug("Browser cookie refresh failed", exc_info=True)
+        return False
+
     def _request(
         self,
         method: str,
@@ -292,8 +324,30 @@ class XClient:
                 )
 
                 if response.status_code == 200:
-                    return response.json()
+                    data = response.json()
+                    # X GraphQL can return HTTP 200 with application-level
+                    # errors in the body (e.g. code 104 "not allowed").
+                    # Only raise when there is no data — some responses
+                    # include both warnings and valid data.
+                    errors = data.get("errors") if isinstance(data, dict) else None
+                    if errors and not data.get("data"):
+                        first = errors[0]
+                        code = first.get("code", 0)
+                        msg = first.get("message", "Unknown error")
+                        raise APIError(
+                            f"API error (code {code}): {msg}",
+                            status_code=200,
+                            response_data=data,
+                        )
+                    return data
                 elif response.status_code == 401:
+                    refreshed = self._try_refresh_credentials()
+                    if refreshed:
+                        headers = self._get_headers(method=method, url=url)
+                        if data is not None:
+                            headers["content-type"] = "application/x-www-form-urlencoded"
+                        cookies = self._get_cookies()
+                        continue
                     raise AuthError("Authentication failed. Cookies may be expired.")
                 elif response.status_code == 429:
                     retry_after = response.headers.get("retry-after", "60")
@@ -306,6 +360,13 @@ class XClient:
                         response_data={"retry_after": int(retry_after)},
                     )
                 elif response.status_code == 403:
+                    refreshed = self._try_refresh_credentials()
+                    if refreshed:
+                        headers = self._get_headers(method=method, url=url)
+                        if data is not None:
+                            headers["content-type"] = "application/x-www-form-urlencoded"
+                        cookies = self._get_cookies()
+                        continue
                     raise APIError(
                         "Forbidden — account may be suspended or action not allowed",
                         status_code=403,
@@ -354,11 +415,18 @@ class XClient:
         features: dict[str, Any] | None = None,
         field_toggles: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make a GraphQL request with auto-retry on stale endpoint IDs."""
+        """Make a GraphQL request with auto-retry on stale endpoint IDs.
+
+        Retry strategy for GET requests:
+        1. Try GET with current cache
+        2. On 404: invalidate cache, retry GET with fresh IDs
+        3. On second 404: fall back to POST (X.com migrates endpoints)
+        """
         resolved_features = features if features is not None else get_op_features(operation)
         resolved_toggles = field_toggles if field_toggles is not None else DEFAULT_FIELD_TOGGLES
+        current_method = method
 
-        for attempt in range(2):
+        for attempt in range(3):
             endpoints = get_graphql_endpoints()
             endpoint = endpoints.get(operation)
             if not endpoint:
@@ -369,7 +437,7 @@ class XClient:
                 )
             url = f"{GRAPHQL_BASE}/{endpoint}"
 
-            if method == "GET":
+            if current_method == "GET":
                 kwargs: dict[str, Any] = {
                     "params": {
                         "variables": json.dumps(variables),
@@ -387,7 +455,7 @@ class XClient:
                 }
 
             try:
-                result = self._request(method, url, **kwargs)
+                result = self._request(current_method, url, **kwargs)
                 # Check for GraphQL-level errors (HTTP 200 but errors in body)
                 gql_errors = result.get("errors") if isinstance(result, dict) else None
                 if gql_errors and method == "POST":
@@ -406,7 +474,7 @@ class XClient:
                         operation,
                         [e.get("message", "") for e in gql_errors],
                     )
-                delay() if method == "GET" else write_delay()
+                delay() if current_method == "GET" else write_delay()
                 return result
             except StaleEndpointError:
                 if attempt == 0:
@@ -419,9 +487,18 @@ class XClient:
                     if features is None:
                         resolved_features = get_op_features(operation)
                     continue
+                if attempt == 1 and method == "GET":
+                    logger.warning(
+                        "HTTP 404 for '%s' persists after cache refresh — "
+                        "falling back to POST (endpoint may have migrated)",
+                        operation,
+                    )
+                    current_method = "POST"
+                    continue
                 raise APIError(
                     f"GraphQL endpoint '{operation}' not found (HTTP 404) "
-                    f"even after cache refresh — X.com may have removed this operation",
+                    f"even after cache refresh and POST fallback — "
+                    f"X.com may have removed this operation",
                     status_code=404,
                 )
             except APIError as e:
@@ -470,6 +547,25 @@ class XClient:
         }
         result = self._request("POST", url, json_data=json_data)
         write_delay()
+        return result
+
+    def graphql_get_raw(
+        self,
+        query_id: str,
+        operation_name: str,
+        variables: dict[str, Any],
+        features: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Make a GraphQL GET request with a hardcoded query ID.
+
+        Used for operations not present in the JS bundles.
+        """
+        url = f"{GRAPHQL_BASE}/{query_id}/{operation_name}"
+        params: dict[str, str] = {"variables": json.dumps(variables)}
+        if features:
+            params["features"] = json.dumps(features)
+        result = self._request("GET", url, params=params)
+        delay()
         return result
 
     def graphql_get(

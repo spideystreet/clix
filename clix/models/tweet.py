@@ -48,6 +48,7 @@ class Tweet(BaseModel):
     source: str | None = None
     is_retweet: bool = False
     retweeted_by: str | None = None
+    is_subscriber_only: bool = False
     url: str | None = None
 
     @computed_field
@@ -66,11 +67,16 @@ class Tweet(BaseModel):
         try:
             # Handle different result wrappers
             tweet_data = result
-            if "tweet" in result:
+            is_subscriber_only = False
+            if result.get("__typename") == "TweetWithVisibilityResults":
+                tweet_data = result.get("tweet", result)
+                is_subscriber_only = bool(result.get("tweetInterstitial"))
+            elif "tweet" in result:
                 tweet_data = result["tweet"]
 
             core = tweet_data.get("core", {})
             user_results = core.get("user_results", {}).get("result", {})
+            core_user = user_results.get("core", {})
             legacy_user = user_results.get("legacy", {})
             legacy = tweet_data.get("legacy", {})
             rest_id = tweet_data.get("rest_id", legacy.get("id_str", ""))
@@ -87,7 +93,9 @@ class Tweet(BaseModel):
                 original = cls.from_api_result(retweeted_status)
                 if original:
                     original.is_retweet = True
-                    original.retweeted_by = legacy_user.get("screen_name")
+                    original.retweeted_by = core_user.get(
+                        "screen_name", legacy_user.get("screen_name")
+                    )
                 return original
 
             # Parse engagement
@@ -142,8 +150,8 @@ class Tweet(BaseModel):
                 id=rest_id,
                 text=text,
                 author_id=user_results.get("rest_id", ""),
-                author_name=legacy_user.get("name", ""),
-                author_handle=legacy_user.get("screen_name", ""),
+                author_name=core_user.get("name", legacy_user.get("name", "")),
+                author_handle=core_user.get("screen_name", legacy_user.get("screen_name", "")),
                 author_verified=user_results.get("is_blue_verified", False),
                 created_at=created_at,
                 engagement=engagement,
@@ -154,6 +162,7 @@ class Tweet(BaseModel):
                 conversation_id=legacy.get("conversation_id_str"),
                 language=legacy.get("lang"),
                 source=tweet_data.get("source"),
+                is_subscriber_only=is_subscriber_only,
             )
         except (KeyError, TypeError, IndexError):
             return None

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
+import urllib.parse
 from typing import Any
 
 import typer
@@ -118,6 +120,32 @@ def output_yaml(data: list | dict | object) -> None:
         yaml.safe_dump(serialized, allow_unicode=True, sort_keys=False, default_flow_style=False),
         end="",
     )
+
+
+def normalize_tweet_id(value: str) -> str:
+    """Extract a numeric tweet ID from a raw ID or a full X/Twitter URL.
+
+    Accepts:
+        - "123456789"
+        - "https://x.com/user/status/123456789"
+        - "https://twitter.com/user/status/123456789?s=20"
+    """
+    raw = value.strip()
+    if not raw:
+        raise ValueError("Tweet ID or URL is required")
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme and parsed.netloc:
+        match = re.search(r"/status/(\d+)", parsed.path)
+        if not match:
+            raise ValueError(f"Invalid tweet URL: {value}")
+        return match.group(1)
+
+    # Strip query params / fragments from bare IDs
+    candidate = raw.split("?")[0].split("#")[0]
+    if not candidate.isdigit():
+        raise ValueError(f"Invalid tweet ID: {value}")
+    return candidate
 
 
 def get_client(account: str | None = None, proxy: str | None = None):

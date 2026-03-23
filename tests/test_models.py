@@ -56,7 +56,8 @@ class TestTweetModel:
         assert data["id"] == "123"
         assert "tweet_url" in data
 
-    def test_tweet_from_api_result(self):
+    def test_tweet_from_api_result_new_format(self):
+        """Parse tweet with new API format (name/screen_name in core)."""
         api_data = {
             "rest_id": "999",
             "core": {
@@ -64,10 +65,11 @@ class TestTweetModel:
                     "result": {
                         "rest_id": "111",
                         "is_blue_verified": True,
-                        "legacy": {
+                        "core": {
                             "name": "API User",
                             "screen_name": "apiuser",
                         },
+                        "legacy": {},
                     }
                 }
             },
@@ -88,22 +90,60 @@ class TestTweetModel:
         assert tweet is not None
         assert tweet.id == "999"
         assert tweet.text == "Tweet from API"
+        assert tweet.author_name == "API User"
         assert tweet.author_handle == "apiuser"
+        assert tweet.tweet_url == "https://x.com/apiuser/status/999"
         assert tweet.author_verified is True
         assert tweet.engagement.likes == 42
         assert tweet.engagement.views == 50000
 
-    def test_tweet_from_api_result_retweet(self):
+    def test_tweet_from_api_result_legacy_format(self):
+        """Parse tweet with old API format (name/screen_name in legacy) for backwards compat."""
+        api_data = {
+            "rest_id": "999",
+            "core": {
+                "user_results": {
+                    "result": {
+                        "rest_id": "111",
+                        "is_blue_verified": True,
+                        "legacy": {
+                            "name": "Legacy User",
+                            "screen_name": "legacyuser",
+                        },
+                    }
+                }
+            },
+            "legacy": {
+                "full_text": "Tweet from API",
+                "favorite_count": 42,
+                "retweet_count": 10,
+                "reply_count": 5,
+                "quote_count": 2,
+                "bookmark_count": 3,
+                "created_at": "Mon Jan 01 12:00:00 +0000 2024",
+                "lang": "en",
+            },
+            "views": {"count": "50000"},
+        }
+
+        tweet = Tweet.from_api_result(api_data)
+        assert tweet is not None
+        assert tweet.author_name == "Legacy User"
+        assert tweet.author_handle == "legacyuser"
+
+    def test_tweet_from_api_result_retweet_new_format(self):
+        """Parse retweet with new API format (screen_name in core)."""
         api_data = {
             "rest_id": "rt_id",
             "core": {
                 "user_results": {
                     "result": {
                         "rest_id": "retweeter_id",
-                        "legacy": {
+                        "core": {
                             "name": "Retweeter",
                             "screen_name": "retweeter",
                         },
+                        "legacy": {},
                     }
                 }
             },
@@ -116,10 +156,11 @@ class TestTweetModel:
                             "user_results": {
                                 "result": {
                                     "rest_id": "orig_user_id",
-                                    "legacy": {
+                                    "core": {
                                         "name": "Original",
                                         "screen_name": "original",
                                     },
+                                    "legacy": {},
                                 }
                             }
                         },
@@ -138,6 +179,54 @@ class TestTweetModel:
         assert tweet.is_retweet is True
         assert tweet.retweeted_by == "retweeter"
         assert tweet.author_handle == "original"
+
+    def test_subscriber_only_tweet_detected(self):
+        """Detect subscriber-only tweets via TweetWithVisibilityResults."""
+        api_data = {
+            "__typename": "TweetWithVisibilityResults",
+            "tweet": {
+                "rest_id": "999",
+                "core": {
+                    "user_results": {
+                        "result": {
+                            "rest_id": "111",
+                            "core": {"name": "Creator", "screen_name": "creator"},
+                            "legacy": {},
+                        }
+                    }
+                },
+                "legacy": {"full_text": "Paid content"},
+            },
+            "tweetInterstitial": {
+                "__typename": "TweetInterstitial",
+                "text": {"text": "Subscribe to see this"},
+            },
+        }
+
+        tweet = Tweet.from_api_result(api_data)
+        assert tweet is not None
+        assert tweet.is_subscriber_only is True
+        assert tweet.text == "Paid content"
+
+    def test_regular_tweet_not_subscriber_only(self):
+        """Regular tweets have is_subscriber_only=False."""
+        api_data = {
+            "rest_id": "999",
+            "core": {
+                "user_results": {
+                    "result": {
+                        "rest_id": "111",
+                        "core": {"name": "User", "screen_name": "user"},
+                        "legacy": {},
+                    }
+                }
+            },
+            "legacy": {"full_text": "Normal tweet"},
+        }
+
+        tweet = Tweet.from_api_result(api_data)
+        assert tweet is not None
+        assert tweet.is_subscriber_only is False
 
     def test_tweet_from_api_result_invalid(self):
         assert Tweet.from_api_result({}) is None
@@ -174,15 +263,53 @@ class TestUserModel:
         assert user.id == "123"
         assert user.profile_url == "https://x.com/testuser"
 
-    def test_user_from_api_result(self):
+    def test_user_from_api_result_new_format(self):
+        """Parse user with new API format (fields moved to core/avatar/location)."""
+        api_data = {
+            "rest_id": "789",
+            "is_blue_verified": True,
+            "core": {
+                "name": "API User",
+                "screen_name": "apiuser",
+                "created_at": "Tue Jan 01 00:00:00 +0000 2020",
+            },
+            "avatar": {
+                "image_url": "https://pbs.twimg.com/pic_normal.jpg",
+            },
+            "location": {"location": "Earth"},
+            "legacy": {
+                "description": "Bio text",
+                "followers_count": 5000,
+                "friends_count": 200,
+                "statuses_count": 10000,
+                "listed_count": 50,
+                "profile_banner_url": "https://pbs.twimg.com/banner.jpg",
+            },
+        }
+
+        user = User.from_api_result(api_data)
+        assert user is not None
+        assert user.id == "789"
+        assert user.name == "API User"
+        assert user.handle == "apiuser"
+        assert user.bio == "Bio text"
+        assert user.location == "Earth"
+        assert user.verified is True
+        assert user.followers_count == 5000
+        assert user.following_count == 200
+        assert "_400x400" in user.profile_image_url
+        assert user.created_at is not None
+
+    def test_user_from_api_result_legacy_format(self):
+        """Parse user with old API format for backwards compat."""
         api_data = {
             "rest_id": "789",
             "is_blue_verified": True,
             "legacy": {
-                "name": "API User",
-                "screen_name": "apiuser",
+                "name": "Legacy User",
+                "screen_name": "legacyuser",
                 "description": "Bio text",
-                "location": "Earth",
+                "location": "Mars",
                 "followers_count": 5000,
                 "friends_count": 200,
                 "statuses_count": 10000,
@@ -195,11 +322,23 @@ class TestUserModel:
 
         user = User.from_api_result(api_data)
         assert user is not None
-        assert user.id == "789"
-        assert user.verified is True
-        assert user.followers_count == 5000
-        assert user.following_count == 200
+        assert user.name == "Legacy User"
+        assert user.handle == "legacyuser"
+        assert user.location == "Mars"
         assert "_400x400" in user.profile_image_url
+
+    def test_user_from_api_result_bio_fallback_to_profile_bio(self):
+        """Fall back to profile_bio when legacy.description is empty."""
+        api_data = {
+            "rest_id": "789",
+            "core": {"name": "User", "screen_name": "user"},
+            "profile_bio": {"description": "Bio from profile_bio"},
+            "legacy": {"description": ""},
+        }
+
+        user = User.from_api_result(api_data)
+        assert user is not None
+        assert user.bio == "Bio from profile_bio"
 
     def test_user_from_api_result_invalid(self):
         assert User.from_api_result({}) is None

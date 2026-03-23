@@ -104,6 +104,116 @@ class TestArticleToMarkdown:
         assert article_to_markdown({"content_state": {"blocks": []}}) == ""
         assert article_to_markdown({}) == ""
 
+    def test_atomic_image_with_entity(self):
+        """Atomic block with IMAGE entity should render as markdown image."""
+        data = {
+            "content_state": {
+                "blocks": [
+                    {"type": "unstyled", "text": "Before"},
+                    {
+                        "type": "atomic",
+                        "text": " ",
+                        "entityRanges": [{"key": 0}],
+                    },
+                    {"type": "unstyled", "text": "After"},
+                ],
+                "entityMap": {
+                    "0": {
+                        "type": "IMAGE",
+                        "data": {
+                            "original_img_url": "https://pbs.twimg.com/media/test.jpg",
+                            "caption": "A photo",
+                        },
+                    }
+                },
+            }
+        }
+        result = article_to_markdown(data)
+        assert "![A photo](https://pbs.twimg.com/media/test.jpg)" in result
+        assert "Before" in result
+        assert "After" in result
+
+    def test_atomic_image_media_id_lookup(self):
+        """Atomic block should fall back to media_id lookup."""
+        data = {
+            "result": {
+                "content": {
+                    "content_state": {
+                        "blocks": [
+                            {
+                                "type": "atomic",
+                                "text": " ",
+                                "entityRanges": [{"key": 0}],
+                            },
+                        ],
+                        "entityMap": {
+                            "0": {
+                                "type": "IMAGE",
+                                "data": {"mediaId": "12345"},
+                            }
+                        },
+                    }
+                },
+                "media_entities": [
+                    {
+                        "media_id": "12345",
+                        "original_img_url": "https://pbs.twimg.com/looked_up.jpg",
+                    }
+                ],
+            }
+        }
+        result = article_to_markdown(data)
+        assert "![](https://pbs.twimg.com/looked_up.jpg)" in result
+
+    def test_atomic_markdown_entity(self):
+        """Atomic block with MARKDOWN entity should embed raw markdown."""
+        data = {
+            "content_state": {
+                "blocks": [
+                    {
+                        "type": "atomic",
+                        "text": " ",
+                        "entityRanges": [{"key": 0}],
+                    },
+                ],
+                "entityMap": {
+                    "0": {
+                        "type": "MARKDOWN",
+                        "data": {"markdown": "**embedded bold**"},
+                    }
+                },
+            }
+        }
+        result = article_to_markdown(data)
+        assert result == "**embedded bold**"
+
+    def test_entity_map_list_format(self):
+        """entityMap as a list of {key, value} pairs should be normalized."""
+        data = {
+            "content_state": {
+                "blocks": [
+                    {
+                        "type": "atomic",
+                        "text": " ",
+                        "entityRanges": [{"key": 0}],
+                    },
+                ],
+                "entityMap": [
+                    {
+                        "key": "0",
+                        "value": {
+                            "type": "IMAGE",
+                            "data": {
+                                "url": "https://pbs.twimg.com/list_format.png",
+                            },
+                        },
+                    }
+                ],
+            }
+        }
+        result = article_to_markdown(data)
+        assert "![](https://pbs.twimg.com/list_format.png)" in result
+
     def test_nested_result_key(self):
         """Data wrapped in a 'result' key should be unwrapped."""
         data = {

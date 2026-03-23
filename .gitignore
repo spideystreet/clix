@@ -1,6 +1,7 @@
 # clix specific
 auth.json
 cookies.json
+cookies-*.json
 *.cookies
 .clix-credentials
 docs/plans/

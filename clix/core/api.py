@@ -76,6 +76,7 @@ def _find_instructions(data: dict[str, Any]) -> list[dict]:
         ["data", "user", "result", "timeline", "timeline", "instructions"],
         ["data", "bookmark_timeline_v2", "timeline", "instructions"],
         ["data", "bookmark_timeline", "timeline", "instructions"],
+        ["data", "bookmark_collection_timeline", "timeline", "instructions"],
         ["data", "search_by_raw_query", "bookmarks_search_timeline", "timeline", "instructions"],
         ["data", "list", "tweets_timeline", "timeline", "instructions"],
         ["data", "list", "members_timeline", "timeline", "instructions"],
@@ -358,6 +359,77 @@ def get_bookmarks(
     return _extract_tweets_from_timeline(data)
 
 
+def get_bookmark_folders(client: XClient) -> list[dict[str, str]]:
+    """Fetch bookmark folders for the authenticated user."""
+    folders: list[dict[str, str]] = []
+    cursor: str | None = None
+
+    for _ in range(10):  # max pages
+        variables: dict[str, Any] = {}
+        if cursor:
+            variables["cursor"] = cursor
+
+        data = client.graphql_get_raw(
+            "i78YDd0Tza-dV4SYs58kRg",
+            "BookmarkFoldersSlice",
+            variables,
+        )
+
+        items = (
+            data.get("data", {})
+            .get("viewer", {})
+            .get("user_results", {})
+            .get("result", {})
+            .get("bookmark_collections_slice", {})
+            .get("items", [])
+        )
+
+        for item in items:
+            folder_id = item.get("id", "")
+            name = item.get("name", "")
+            if folder_id:
+                folders.append({"id": folder_id, "name": name})
+
+        # Check for next page
+        slice_info = (
+            data.get("data", {})
+            .get("viewer", {})
+            .get("user_results", {})
+            .get("result", {})
+            .get("bookmark_collections_slice", {})
+            .get("slice_info", {})
+        )
+        next_cursor = slice_info.get("next_cursor")
+        if not next_cursor:
+            break
+        cursor = next_cursor
+
+    return folders
+
+
+def get_bookmark_folder_timeline(
+    client: XClient,
+    folder_id: str,
+    count: int = 20,
+    cursor: str | None = None,
+) -> TimelineResponse:
+    """Fetch tweets from a bookmark folder."""
+    variables: dict[str, Any] = {
+        "bookmark_collection_id": folder_id,
+        "count": count,
+        "includePromotedContent": False,
+    }
+    if cursor:
+        variables["cursor"] = cursor
+
+    data = client.graphql_get_raw(
+        "hNY7X2xE2N7HVF6Qb_mu6w",
+        "BookmarkFolderTimeline",
+        variables,
+    )
+    return _extract_tweets_from_timeline(data)
+
+
 def get_article(client: XClient, tweet_id: str) -> dict[str, Any] | None:
     """Fetch article data for an article tweet.
 
@@ -405,7 +477,10 @@ def get_article(client: XClient, tweet_id: str) -> dict[str, Any] | None:
     if result.get("__typename") == "TweetWithVisibilityResults":
         result = result.get("tweet", result)
 
-    article_results = result.get("article_results")
+    # X moved article_results under result.article.article_results
+    article_results = result.get("article_results") or (
+        result.get("article", {}).get("article_results")
+    )
     if not article_results:
         return None
 
@@ -477,12 +552,8 @@ def get_list_tweets(
     return _extract_tweets_from_timeline(data)
 
 
-def get_user_lists(client: XClient) -> list[dict[str, Any]]:
-    """Fetch the authenticated user's lists."""
-    variables: dict[str, Any] = {"count": 100}
-
-    data = client.graphql_get("ListsManagementPageTimeline", variables)
-
+def _parse_user_lists(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Parse user lists from ListsManagementPageTimeline response."""
     lists: list[dict[str, Any]] = []
     instructions = (
         data.get("data", {})
@@ -494,25 +565,39 @@ def get_user_lists(client: XClient) -> list[dict[str, Any]]:
 
     for instruction in instructions:
         for entry in instruction.get("entries", []):
-            content = entry.get("content", {})
-            item_content = content.get("itemContent", {})
-            list_result = item_content.get("list", {})
-
-            if not list_result:
+            entry_id = entry.get("entryId", "")
+            # Only parse owned/subscribed lists, skip "Discover new Lists" suggestions
+            if "owned-subscribed" not in entry_id:
                 continue
 
-            list_info: dict[str, Any] = {
-                "id": list_result.get("id_str", ""),
-                "name": list_result.get("name", ""),
-                "description": list_result.get("description", ""),
-                "member_count": list_result.get("member_count", 0),
-                "subscriber_count": list_result.get("subscriber_count", 0),
-                "mode": list_result.get("mode", ""),
-            }
-            if list_info["id"]:
-                lists.append(list_info)
+            content = entry.get("content", {})
+            # Entries are TimelineTimelineModule — lists are nested in items
+            for module_item in content.get("items", []):
+                item_content = module_item.get("item", {}).get("itemContent", {})
+                list_result = item_content.get("list", {})
+
+                if not list_result:
+                    continue
+
+                list_info: dict[str, Any] = {
+                    "id": list_result.get("id_str", ""),
+                    "name": list_result.get("name", ""),
+                    "description": list_result.get("description", ""),
+                    "member_count": list_result.get("member_count", 0),
+                    "subscriber_count": list_result.get("subscriber_count", 0),
+                    "mode": list_result.get("mode", ""),
+                }
+                if list_info["id"]:
+                    lists.append(list_info)
 
     return lists
+
+
+def get_user_lists(client: XClient) -> list[dict[str, Any]]:
+    """Fetch the authenticated user's lists."""
+    variables: dict[str, Any] = {"count": 100}
+    data = client.graphql_get("ListsManagementPageTimeline", variables)
+    return _parse_user_lists(data)
 
 
 # =============================================================================
@@ -921,26 +1006,32 @@ def download_tweet_media(client: XClient, tweet_id: str, output_dir: str = ".") 
 
 
 def get_trending(client: XClient) -> list[dict[str, Any]]:
-    """Get trending topics from the Explore tab."""
-    url = "https://x.com/i/api/2/guide.json"
-    params = {
-        "include_page_configuration": "false",
-        "initial_tab_id": "trending",
-        "count": "20",
-    }
-    data = client.rest_get(url, params=params)
+    """Get trending topics from the Explore page."""
+    data = client.graphql_get("ExplorePage", {})
     return _parse_trends(data)
 
 
 def _parse_trends(data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extract trending topics from guide.json response.
+    """Extract trending topics from ExplorePage GraphQL response.
 
-    The response nests trend entries inside timeline instructions/modules.
-    Each trend item contains metadata like name, tweet volume, and context.
+    Supports both the new ExplorePage format (TimelineTrend items inside
+    explore_page.body.initialTimeline) and the legacy guide.json format
+    (trend items inside timeline.instructions).
     """
-    trends: list[dict[str, Any]] = []
+    # Try ExplorePage format first
+    timeline = (
+        data.get("data", {})
+        .get("explore_page", {})
+        .get("body", {})
+        .get("initialTimeline", {})
+        .get("timeline", {})
+        .get("timeline", {})
+    )
+    if not timeline:
+        # Fall back to legacy guide.json format
+        timeline = data.get("timeline", {})
 
-    timeline = data.get("timeline", {})
+    trends: list[dict[str, Any]] = []
     instructions = timeline.get("instructions", [])
 
     for instruction in instructions:
@@ -948,30 +1039,55 @@ def _parse_trends(data: dict[str, Any]) -> list[dict[str, Any]]:
         for entry in entries:
             content = entry.get("content", {})
 
-            # Trends may be inside a TimelineTimelineModule (grouped)
+            # Trends are inside TimelineTimelineModule items
             items = content.get("items", [])
-            if items:
-                for item in items:
-                    trend = _extract_trend(item)
-                    if trend:
-                        trends.append(trend)
-
-            # Or directly in entry content
-            trend = _extract_trend_from_content(content)
-            if trend:
-                trends.append(trend)
+            for item in items:
+                trend = _extract_trend(item)
+                if trend:
+                    trends.append(trend)
 
     return trends
 
 
 def _extract_trend(item: dict[str, Any]) -> dict[str, Any] | None:
     """Extract a single trend from a module item."""
-    item_content = item.get("item", {}).get("content", {})
+    item_content = item.get("item", {}).get("itemContent", {})
+    if not item_content:
+        # Legacy format: content instead of itemContent
+        item_content = item.get("item", {}).get("content", {})
     return _extract_trend_from_content(item_content)
 
 
 def _extract_trend_from_content(content: dict[str, Any]) -> dict[str, Any] | None:
-    """Extract a single trend from content dict."""
+    """Extract a single trend from content dict.
+
+    Handles both ExplorePage format (TimelineTrend with name/social_context)
+    and legacy guide.json format (trend with trendMetadata).
+    """
+    # ExplorePage format: name is a top-level field
+    if content.get("__typename") == "TimelineTrend":
+        name = content.get("name")
+        if not name:
+            return None
+
+        # Volume from social_context text (e.g. "Trending now · News · 167 posts")
+        social_text = content.get("social_context", {}).get("text", "")
+        tweet_count = _parse_tweet_volume(social_text)
+
+        # URL from trend_metadata or trend_url
+        trend_url = ""
+        url_obj = content.get("trend_metadata", {}).get("url", {})
+        if isinstance(url_obj, dict):
+            trend_url = url_obj.get("url", "")
+
+        return {
+            "name": name,
+            "tweet_count": tweet_count,
+            "context": social_text,
+            "url": trend_url,
+        }
+
+    # Legacy guide.json format
     trend_metadata = content.get("trend", {})
     if not trend_metadata:
         return None
@@ -980,20 +1096,17 @@ def _extract_trend_from_content(content: dict[str, Any]) -> dict[str, Any] | Non
     if not name:
         return None
 
-    # Tweet volume (may be absent)
     tweet_count: int | None = None
     description = trend_metadata.get("trendMetadata", {})
     if description:
         meta_description = description.get("metaDescription")
         tweet_count = _parse_tweet_volume(meta_description)
 
-    # Context / category
     context = ""
     trend_context = content.get("trendContext", {}) or content.get("socialContext", {})
     if trend_context:
         context = trend_context.get("text", "")
 
-    # URL
     url = trend_metadata.get("url", {})
     trend_url = ""
     if isinstance(url, dict):
