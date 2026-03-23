@@ -716,7 +716,26 @@ def create_tweet(
     if quote_tweet_url:
         variables["attachment_url"] = quote_tweet_url
 
-    return client.graphql_post("CreateTweet", variables)
+    data = client.graphql_post("CreateTweet", variables)
+
+    # Check for GraphQL-level errors (API returns HTTP 200 with errors in body)
+    errors = data.get("errors")
+    if errors:
+        error_msg = errors[0].get("message", "Unknown error") if errors else "Unknown error"
+        raise APIError(f"Tweet creation failed: {error_msg}", response_data=data)
+
+    # Verify the tweet was actually created in the response
+    tweet_result = (
+        data.get("data", {}).get("create_tweet", {}).get("tweet_results", {}).get("result", {})
+    )
+
+    if not tweet_result or not tweet_result.get("rest_id"):
+        raise APIError(
+            "Tweet creation failed: no tweet in response (may have been silently rejected)",
+            response_data=data,
+        )
+
+    return data
 
 
 def delete_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:
