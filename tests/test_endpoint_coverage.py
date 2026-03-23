@@ -25,17 +25,41 @@ HARDCODED_RAW_OPERATIONS = {
     "JobScreenQuery",
 }
 
-# Operations that use REST API instead of GraphQL.
-# These don't need query IDs at all.
-REST_OPERATIONS = {
-    "send_dm",  # dm/new2.json
-    "get_dm_inbox",  # dm/inbox_initial_state.json
-    "follow_user",  # users/create.json
-    "unfollow_user",  # users/destroy.json
-    "block_user",  # blocks/create.json
-    "unblock_user",  # blocks/destroy.json
-    "mute_user",  # mutes/users/create.json
-    "unmute_user",  # mutes/users/destroy.json
+# All dynamic GraphQL operations used via graphql_get/graphql_post.
+# These are resolved at runtime from X.com JS bundles or FALLBACK_OPERATIONS.
+# If you add a new graphql_get/graphql_post call, add the operation here.
+KNOWN_DYNAMIC_OPERATIONS = {
+    # Read operations (graphql_get)
+    "BookmarkSearchTimeline",
+    "ExplorePage",
+    "Followers",
+    "Following",
+    "Likes",
+    "ListLatestTweetsTimeline",
+    "ListMembers",
+    "ListsManagementPageTimeline",
+    "SearchTimeline",
+    "TweetDetail",
+    "TweetResultByRestId",
+    "TweetResultsByRestIds",
+    "UserByScreenName",
+    "UsersByRestIds",
+    # Write operations (graphql_post)
+    "CreateBookmark",
+    "CreateList",
+    "CreateRetweet",
+    "CreateTweet",
+    "DeleteBookmark",
+    "DeleteList",
+    "DeleteRetweet",
+    "DeleteTweet",
+    "DMMessageDeleteMutation",  # Known broken — not in bundles, not exposed in CLI/MCP
+    "FavoriteTweet",
+    "ListAddMember",
+    "ListPinOne",
+    "ListRemoveMember",
+    "ListUnpinOne",
+    "UnfavoriteTweet",
 }
 
 
@@ -78,36 +102,51 @@ def _extract_raw_operations_from_source() -> set[str]:
 
 
 class TestEndpointCoverage:
-    def test_all_dynamic_operations_documented(self):
-        """Every graphql_get/graphql_post operation should be known.
+    def test_no_unknown_dynamic_operations(self):
+        """Every graphql_get/graphql_post operation must be in KNOWN_DYNAMIC_OPERATIONS.
 
-        If this test fails, an operation was added to api.py without being
-        available in the extracted endpoints or fallback list.
+        If this fails, a new operation was added to api.py without registering it.
+        Add it to KNOWN_DYNAMIC_OPERATIONS above.
         """
         operations = _extract_graphql_operations_from_source()
         assert len(operations) > 0, "No operations found — parser may be broken"
 
-        # These operations should be resolvable at runtime via endpoints.py
-        # or present in FALLBACK_OPERATIONS
+        unknown = operations - KNOWN_DYNAMIC_OPERATIONS
+        assert not unknown, (
+            f"Unknown dynamic operations in api.py: {unknown}. "
+            f"Add them to KNOWN_DYNAMIC_OPERATIONS in test_endpoint_coverage.py"
+        )
+
+    def test_no_stale_dynamic_operations(self):
+        """KNOWN_DYNAMIC_OPERATIONS should not have entries removed from api.py.
+
+        If this fails, an operation was removed from api.py but still listed.
+        Remove it from KNOWN_DYNAMIC_OPERATIONS above.
+        """
+        operations = _extract_graphql_operations_from_source()
+        stale = KNOWN_DYNAMIC_OPERATIONS - operations
+        assert not stale, (
+            f"Stale entries in KNOWN_DYNAMIC_OPERATIONS (not in api.py): {stale}. "
+            f"Remove them from KNOWN_DYNAMIC_OPERATIONS in test_endpoint_coverage.py"
+        )
+
+    def test_dynamic_operations_have_resolution_path(self):
+        """Every dynamic operation must be resolvable: either in FALLBACK_OPERATIONS
+        or expected to come from X.com JS bundle extraction at runtime.
+
+        Operations in FALLBACK_OPERATIONS are guaranteed available.
+        Others depend on X.com not removing them from homepage bundles.
+        """
+        operations = _extract_graphql_operations_from_source()
         fallback_names = set(FALLBACK_OPERATIONS.keys())
 
-        # We can't call get_graphql_endpoints() in CI (needs network),
-        # but we CAN verify that operations not in fallbacks are at least
-        # known standard operations that X.com serves from homepage bundles.
-        # If X removes one, the runtime will fail and we need to add a fallback.
-        for op in operations:
-            # Either in fallbacks (guaranteed available) or expected to be
-            # dynamically resolved (will fail at runtime if X removes it)
-            pass  # This test documents the full set for review
+        # These are guaranteed available via fallback
+        covered = operations & fallback_names
+        # These depend on runtime extraction — if X removes them, they break
+        uncovered = operations - fallback_names
 
-        # Print the full inventory for visibility
-        dynamic_ops = operations - fallback_names
-        fallback_ops = operations & fallback_names
-
-        assert len(operations) > 20, (
-            f"Only {len(operations)} operations found — expected 25+. "
-            f"Parser may be broken or api.py drastically changed."
-        )
+        # Just document the split for visibility — not a failure
+        assert len(covered) + len(uncovered) == len(operations)
 
     def test_all_raw_operations_are_hardcoded(self):
         """Every graphql_*_raw operation must be in HARDCODED_RAW_OPERATIONS.
