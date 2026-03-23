@@ -52,7 +52,7 @@ pytest
 
 ## Pull Requests
 
-1. **Branch from `dev`** — never commit directly to `main`.
+1. **Branch from `main`** — never commit directly to `main`.
 2. **Use conventional commits** for your commit messages:
    ```
    feat(cli): add timeline filtering
@@ -65,7 +65,7 @@ pytest
    ruff check .
    pytest
    ```
-5. Open your PR against the `dev` branch.
+5. Open your PR against the `main` branch.
 
 ## Reporting Issues
 
