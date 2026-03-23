@@ -56,9 +56,9 @@ KNOWN_DYNAMIC_OPERATIONS = {
     "DMMessageDeleteMutation",  # Known broken — not in bundles, not exposed in CLI/MCP
     "FavoriteTweet",
     "ListAddMember",
-    "ListPinOne",
     "ListRemoveMember",
-    "ListUnpinOne",
+    "PinTimeline",
+    "UnpinTimeline",
     "UnfavoriteTweet",
 }
 

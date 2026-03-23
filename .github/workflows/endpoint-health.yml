@@ -1,0 +1,63 @@
+name: Endpoint Health Check
+
+on:
+  schedule:
+    - cron: "0 8 * * *"  # Daily at 8:00 UTC
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Check endpoint availability
+        id: check
+        run: |
+          uv run pytest tests/test_endpoint_health.py -v --tb=long 2>&1 | tee result.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const result = fs.readFileSync('result.txt', 'utf8');
+
+            // Check if an open issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'endpoint-health',
+            });
+
+            if (issues.data.length > 0) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `## Daily check — ${new Date().toISOString().slice(0, 10)}\n\nStill failing.\n\n\`\`\`\n${result.slice(-2000)}\n\`\`\``,
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Endpoint health check failed — X.com may have changed operations',
+                body: `The daily endpoint health check detected missing GraphQL operations.\n\nThis means X.com has removed or renamed operations from their JS bundles.\n\n\`\`\`\n${result.slice(-2000)}\n\`\`\`\n\n**Action required:** Add missing operations to \`FALLBACK_OPERATIONS\` in \`endpoints.py\` or migrate to REST API.`,
+                labels: ['endpoint-health', 'bug'],
+              });
+            }

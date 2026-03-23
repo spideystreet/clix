@@ -890,12 +890,12 @@ def get_list_members(
 
 def pin_list(client: XClient, list_id: str) -> dict[str, Any]:
     """Pin a list."""
-    return client.graphql_post("ListPinOne", {"listId": list_id})
+    return client.graphql_post("PinTimeline", {"timeline_id": list_id})
 
 
 def unpin_list(client: XClient, list_id: str) -> dict[str, Any]:
     """Unpin a list."""
-    return client.graphql_post("ListUnpinOne", {"listId": list_id})
+    return client.graphql_post("UnpinTimeline", {"timeline_id": list_id})
 
 
 def unbookmark_tweet(client: XClient, tweet_id: str) -> dict[str, Any]:

@@ -11,7 +11,7 @@ class TestSendDm:
         client = MagicMock()
         client.rest_post.return_value = {"entries": []}
 
-        result = send_dm(client, "12345", "hello")
+        send_dm(client, "12345", "hello")
 
         client.rest_post.assert_called_once()
         call_kwargs = client.rest_post.call_args
