@@ -1245,15 +1245,29 @@ def get_dm_inbox(client: XClient) -> list[DMConversation]:
 
 
 def send_dm(client: XClient, user_id: str, text: str) -> dict[str, Any]:
-    """Send a DM to a user."""
+    """Send a DM to a user via REST API (dm/new2)."""
     import uuid
 
-    variables = {
-        "message": {"text": {"text": text}},
-        "requestId": str(uuid.uuid4()),
-        "target": {"participant_ids": [user_id]},
+    from clix.core.constants import API_BASE
+
+    url = f"{API_BASE}/1.1/dm/new2.json"
+    params = {
+        "include_groups": "true",
+        "include_inbox_timelines": "true",
+        "include_ext_media_color": "true",
+        "supports_reactions": "true",
+        "supports_edit": "true",
     }
-    return client.graphql_post("useSendMessageMutation", variables)
+    body = {
+        "recipient_ids": user_id,
+        "request_id": str(uuid.uuid4()),
+        "text": text,
+        "cards_platform": "Web-12",
+        "include_cards": 1,
+        "include_quote_count": True,
+        "dm_users": False,
+    }
+    return client.rest_post(url, json_body=body, params=params)
 
 
 def delete_dm(client: XClient, conversation_id: str, message_id: str) -> dict[str, Any]:

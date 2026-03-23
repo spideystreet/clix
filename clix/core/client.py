@@ -575,15 +575,19 @@ class XClient:
         url: str,
         data: str | dict[str, str] | None = None,
         timeout: int = 30,
+        json_body: dict[str, Any] | None = None,
+        params: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        """Make an authenticated REST POST request (form-encoded, not GraphQL).
+        """Make an authenticated REST POST request.
 
-        Used for endpoints like the media upload API on upload.twitter.com.
+        Uses form-encoded body by default, or JSON if json_body is provided.
+        Used for endpoints like the media upload API and DM sending.
         """
         headers = self._get_headers()
-        # REST endpoints use form-encoded bodies, not JSON
         headers.pop("content-type", None)
-        if data is not None:
+        if json_body is not None:
+            headers["content-type"] = "application/json"
+        elif data is not None:
             headers["content-type"] = "application/x-www-form-urlencoded"
         # Cross-origin uploads (e.g. upload.twitter.com from x.com)
         if "upload.twitter.com" in url:
@@ -596,6 +600,8 @@ class XClient:
             headers=headers,
             cookies=cookies,
             data=data,
+            json=json_body,
+            params=params,
             timeout=timeout,
         )
 
