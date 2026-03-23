@@ -50,21 +50,31 @@ pytest
 - Use pydantic models for data structures.
 - Never hardcode secrets or tokens.
 
+### CLI commands checklist
+
+When adding or modifying a CLI command, make sure it:
+
+- Accepts `ctx: typer.Context` to access global flags (`--compact`, `--full-text`)
+- Supports all output modes: `--json`, `--yaml`, `--compact`
+- Uses helpers from `cli/helpers.py`: `get_client()`, `output_json()`, `output_yaml()`, `output_compact()`
+- Reuses existing helpers instead of duplicating logic (e.g. `_handle_article()` in `tweet.py`)
+
 ## Pull Requests
 
-1. **Branch from `main`** — never commit directly to `main`.
+1. **Create a feature branch** from `main` (e.g. `fix/my-fix`, `feat/my-feature`) — never PR from your `main` to ours.
 2. **Use conventional commits** for your commit messages:
    ```
    feat(cli): add timeline filtering
    fix(auth): handle expired cookies
    ```
 3. **One logical change per PR** — keep diffs focused and reviewable.
-4. Make sure all checks pass before requesting review:
+4. **Run all checks locally** before pushing:
    ```bash
-   ruff format --check .
+   ruff format .
    ruff check .
    pytest
    ```
+   CI runs the same checks — if they fail, the PR won't be merged.
 5. Open your PR against the `main` branch.
 
 ## Reporting Issues
