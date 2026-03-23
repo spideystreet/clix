@@ -1,0 +1,30 @@
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - "docs/**"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "clix/cli/**"
+
+core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "clix/core/**"
+
+mcp:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "clix/mcp/**"
