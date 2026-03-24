@@ -39,6 +39,7 @@ FALLBACK_OPERATIONS: dict[str, str] = {
     "DeleteRetweet": "iQtK4dl5hBmXewYZuEOKVw",
     "CreateBookmark": "aoDbu3RHznuiSkQ9aNM67Q",
     "DeleteBookmark": "Wlmlj2-xzyS1GN3a6cj-mQ",
+    "DMMessageDeleteMutation": "BJ6DtxA2llfjnRoRjaiIiw",
 }
 
 # --- Bundle URL patterns ---

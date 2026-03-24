@@ -1270,13 +1270,10 @@ def send_dm(client: XClient, user_id: str, text: str) -> dict[str, Any]:
     return client.rest_post(url, json_body=body, params=params)
 
 
-def delete_dm(client: XClient, conversation_id: str, message_id: str) -> dict[str, Any]:
+def delete_dm(client: XClient, message_id: str) -> dict[str, Any]:
     """Delete a DM message."""
-    variables = {
-        "conversation_id": conversation_id,
-        "message_id": message_id,
-    }
-    return client.graphql_post("DMMessageDeleteMutation", variables)
+    variables = {"messageId": message_id}
+    return client.graphql_post_raw("BJ6DtxA2llfjnRoRjaiIiw", "DMMessageDeleteMutation", variables)
 
 
 def mute_user(client: XClient, user_id: str) -> dict[str, Any]:

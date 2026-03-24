@@ -23,6 +23,8 @@ HARDCODED_RAW_OPERATIONS = {
     # Jobs (lazy-loaded from /jobs page)
     "JobSearchQueryScreenJobsQuery",
     "JobScreenQuery",
+    # DM delete (not in homepage bundles)
+    "DMMessageDeleteMutation",
 }
 
 # All dynamic GraphQL operations used via graphql_get/graphql_post.
@@ -53,7 +55,6 @@ KNOWN_DYNAMIC_OPERATIONS = {
     "DeleteList",
     "DeleteRetweet",
     "DeleteTweet",
-    "DMMessageDeleteMutation",  # Known broken — not in bundles, not exposed in CLI/MCP
     "FavoriteTweet",
     "ListAddMember",
     "ListRemoveMember",
@@ -172,17 +173,12 @@ class TestEndpointCoverage:
             "Use REST API dm/new2.json instead."
         )
 
-        # DMMessageDeleteMutation may also be broken (not in bundles)
-        # but delete_dm is not exposed in CLI/MCP yet, so just flag it
+        # DMMessageDeleteMutation uses graphql_post_raw (hardcoded query ID)
+        # Verify it does NOT use the dynamic graphql_post path
         operations = _extract_graphql_operations_from_source()
-        if "DMMessageDeleteMutation" in operations:
-            import warnings
-
-            warnings.warn(
-                "DMMessageDeleteMutation is used in api.py but not in X.com bundles. "
-                "It will fail at runtime. Migrate to REST API when exposing delete_dm.",
-                stacklevel=1,
-            )
+        assert "DMMessageDeleteMutation" not in operations, (
+            "delete_dm should use graphql_post_raw, not graphql_post"
+        )
 
     def test_fallback_operations_not_empty(self):
         """FALLBACK_OPERATIONS should have entries for operations periodically removed."""

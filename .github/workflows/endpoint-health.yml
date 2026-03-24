@@ -40,7 +40,7 @@ jobs:
 
           from tests.test_endpoint_coverage import KNOWN_DYNAMIC_OPERATIONS, HARDCODED_RAW_OPERATIONS
           exempt = set(FALLBACK_OPERATIONS.keys()) | HARDCODED_RAW_OPERATIONS
-          must_resolve = KNOWN_DYNAMIC_OPERATIONS - exempt - {'DMMessageDeleteMutation'}
+          must_resolve = KNOWN_DYNAMIC_OPERATIONS - exempt
           missing = must_resolve - live
 
           print('MISSING_OPS=' + ','.join(sorted(missing)))

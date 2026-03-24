@@ -37,7 +37,6 @@ KNOWN_DYNAMIC_OPERATIONS = {
     "DeleteList",
     "DeleteRetweet",
     "DeleteTweet",
-    "DMMessageDeleteMutation",
     "ExplorePage",
     "FavoriteTweet",
     "Followers",
@@ -61,9 +60,7 @@ KNOWN_DYNAMIC_OPERATIONS = {
 
 # Operations known to be broken but not exposed in CLI/MCP.
 # Exempt from live health checks — will be fixed when exposed.
-KNOWN_BROKEN_OPERATIONS = {
-    "DMMessageDeleteMutation",
-}
+KNOWN_BROKEN_OPERATIONS: set[str] = set()
 
 
 @pytest.fixture(scope="module")

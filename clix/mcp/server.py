@@ -903,6 +903,23 @@ def dm_send(handle: str, text: str) -> str:
 
 
 @mcp.tool()
+def dm_delete(message_id: str) -> str:
+    """Delete a DM message.
+
+    Args:
+        message_id: The ID of the message to delete.
+    """
+    from clix.core.api import delete_dm
+
+    try:
+        with XClient() as client:
+            result = delete_dm(client, message_id=message_id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
 def mute(handle: str) -> str:
     """Mute a user.
 
