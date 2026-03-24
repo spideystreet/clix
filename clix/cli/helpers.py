@@ -80,22 +80,38 @@ def _compact_user(user: Any) -> dict[str, Any]:
     }
 
 
+def _compact_job(job: Any) -> dict[str, Any]:
+    """Produce a minimal dict for a single job listing."""
+    result: dict[str, Any] = {
+        "id": job.id,
+        "title": job.title,
+        "company": job.company.name,
+        "location": job.location,
+    }
+    if job.formatted_salary:
+        result["salary"] = job.formatted_salary
+    if job.redirect_url:
+        result["url"] = job.redirect_url
+    return result
+
+
 def output_compact(data: list[Any] | Any, *, kind: str = "tweets") -> None:
     """Minimal JSON output optimized for LLM token efficiency.
 
     Args:
-        data: A list of tweets/users or a single user/tweet object.
-        kind: 'tweets', 'users', or 'user' to select the compact format.
+        data: A list of tweets/users/jobs or a single object.
+        kind: 'tweets', 'users', 'user', or 'jobs' to select the compact format.
     """
     if kind == "user":
         print(json.dumps(_compact_user(data), separators=(",", ":")))
         return
 
-    if kind == "users":
-        items = [_compact_user(u) for u in data]
-    else:
-        items = [_compact_tweet(t) for t in data]
+    compact_fn = {
+        "users": _compact_user,
+        "jobs": _compact_job,
+    }.get(kind, _compact_tweet)
 
+    items = [compact_fn(item) for item in data]
     print(json.dumps(items, separators=(",", ":")))
 
 

@@ -54,3 +54,26 @@ def send(
         output_json(result)
     else:
         print_success(f"DM sent to @{handle}")
+
+
+@dm_app.command("delete")
+def delete(
+    message_id: Annotated[str, typer.Argument(help="ID of the message to delete")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
+    account: Annotated[str | None, typer.Option(help="Account name")] = None,
+) -> None:
+    """Delete a DM message."""
+    from clix.core.api import delete_dm
+    from clix.display.formatter import print_success
+
+    if not force:
+        typer.confirm(f"Delete message {message_id}?", abort=True)
+
+    with get_client(account) as client:
+        result = delete_dm(client, message_id)
+
+    if is_json_mode(json_output):
+        output_json(result)
+    else:
+        print_success("Message deleted")

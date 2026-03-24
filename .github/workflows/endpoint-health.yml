@@ -1,0 +1,153 @@
+name: Endpoint Health Check
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC
+    - cron: "0 14 * * *"  # 14:00 UTC
+    - cron: "0 22 * * *"  # 22:00 UTC
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Check endpoint availability
+        id: check
+        run: |
+          uv run pytest tests/test_endpoint_health.py -v --tb=long 2>&1 | tee result.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Dump live operations on failure
+        if: failure()
+        id: dump
+        run: |
+          uv run python3 -c "
+          from clix.core.endpoints import _fetch_and_extract, FALLBACK_OPERATIONS
+          endpoints, _, _ = _fetch_and_extract()
+          live = set(endpoints.keys())
+
+          from tests.test_endpoint_coverage import KNOWN_DYNAMIC_OPERATIONS, HARDCODED_RAW_OPERATIONS
+          exempt = set(FALLBACK_OPERATIONS.keys()) | HARDCODED_RAW_OPERATIONS
+          must_resolve = KNOWN_DYNAMIC_OPERATIONS - exempt
+          missing = must_resolve - live
+
+          print('MISSING_OPS=' + ','.join(sorted(missing)))
+
+          # Find possible renames: ops in live that weren't there before
+          all_known = KNOWN_DYNAMIC_OPERATIONS | HARDCODED_RAW_OPERATIONS | set(FALLBACK_OPERATIONS.keys())
+          new_ops = live - all_known
+          print()
+          print('=== Missing operations ===')
+          for op in sorted(missing):
+              print(f'  - {op}')
+          print()
+          print('=== Possible renames (new ops in bundles) ===')
+          for op in sorted(new_ops):
+              qid = endpoints[op].split('/')[0]
+              print(f'  - {op}: {qid}')
+          print()
+          print(f'=== Total live operations: {len(live)} ===')
+          " 2>&1 | tee diagnosis.txt
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const result = fs.readFileSync('result.txt', 'utf8');
+            const diagnosis = fs.existsSync('diagnosis.txt')
+              ? fs.readFileSync('diagnosis.txt', 'utf8')
+              : 'Diagnosis unavailable';
+            const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+
+            const issueBody = [
+              `## Endpoint Health Check Failed`,
+              `**Detected:** ${timestamp}`,
+              ``,
+              `X.com has removed or renamed GraphQL operations from their JS bundles.`,
+              ``,
+              `### Diagnosis`,
+              '```',
+              diagnosis.slice(-3000),
+              '```',
+              ``,
+              `### Test output`,
+              '```',
+              result.slice(-2000),
+              '```',
+              ``,
+              `### Files to modify`,
+              `| File | What to change |`,
+              `|------|---------------|`,
+              `| \`clix/core/api.py\` | Update operation name in \`graphql_get()\` / \`graphql_post()\` calls |`,
+              `| \`clix/core/endpoints.py\` | Add query ID to \`FALLBACK_OPERATIONS\` if operation removed from bundles |`,
+              `| \`clix/mcp/server.py\` | Update if MCP tool wraps the affected operation |`,
+              `| \`tests/test_endpoint_coverage.py\` | Update \`KNOWN_DYNAMIC_OPERATIONS\` set |`,
+              `| \`tests/test_endpoint_health.py\` | Update \`KNOWN_DYNAMIC_OPERATIONS\` set (keep in sync) |`,
+              ``,
+              `### How to fix`,
+              ``,
+              `**If the operation was renamed** (check "Possible renames" above):`,
+              '```python',
+              `# In clix/core/api.py — replace old name with new name:`,
+              `# BEFORE: client.graphql_post("ListPinOne", {"listId": list_id})`,
+              `# AFTER:  client.graphql_post("PinTimeline", {"timeline_id": list_id})`,
+              '```',
+              ``,
+              `**If the operation was removed entirely:**`,
+              '```python',
+              `# In clix/core/endpoints.py — add to FALLBACK_OPERATIONS:`,
+              `# Get the query ID from browser DevTools (Network tab → x.com → filter "graphql")`,
+              `FALLBACK_OPERATIONS = {`,
+              `    ...,`,
+              `    "OperationName": "queryIdFromDevTools",`,
+              `}`,
+              '```',
+              ``,
+              `**If the endpoint moved to REST API:**`,
+              `- See commit a88cb90 for the \`send_dm\` migration pattern (GraphQL → \`dm/new2.json\`)`,
+              `- Use \`client.rest_post(url, json_body=...)\` instead of \`client.graphql_post()\``,
+              ``,
+              `**After fixing**, update \`KNOWN_DYNAMIC_OPERATIONS\` in both test files and run:`,
+              '```bash',
+              `uv run pytest tests/test_endpoint_health.py tests/test_endpoint_coverage.py -v`,
+              '```',
+            ].join('\n');
+
+            // Check if an open issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'endpoint-health',
+            });
+
+            if (issues.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `## Check — ${timestamp}\n\nStill failing.\n\n### Diagnosis\n\`\`\`\n${diagnosis.slice(-3000)}\n\`\`\``,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Endpoint health check failed — X.com operations changed',
+                body: issueBody,
+                labels: ['endpoint-health', 'bug'],
+              });
+            }

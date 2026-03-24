@@ -68,6 +68,7 @@ from clix.core.api import (
     get_user_lists,
     search_tweets,
 )
+from clix.core.api import get_job_detail as _get_job_detail
 from clix.core.api import (
     get_list_members as _get_list_members,
 )
@@ -101,6 +102,7 @@ from clix.core.api import (
 from clix.core.api import (
     retweet as _retweet,
 )
+from clix.core.api import search_jobs as _search_jobs
 from clix.core.api import (
     send_dm as _send_dm,
 )
@@ -901,6 +903,23 @@ def dm_send(handle: str, text: str) -> str:
 
 
 @mcp.tool()
+def dm_delete(message_id: str) -> str:
+    """Delete a DM message.
+
+    Args:
+        message_id: The ID of the message to delete.
+    """
+    from clix.core.api import delete_dm
+
+    try:
+        with XClient() as client:
+            result = delete_dm(client, message_id=message_id)
+            return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
 def mute(handle: str) -> str:
     """Mute a user.
 
@@ -979,6 +998,72 @@ def cancel_scheduled_tweet(id: str) -> str:
         with XClient() as client:
             result = _delete_scheduled_tweet(client, scheduled_tweet_id=id)
             return _serialize(result)
+    except Exception as e:
+        return _error_response(e)
+
+
+# =============================================================================
+# Job Tools
+# =============================================================================
+
+
+@mcp.tool()
+def search_jobs(
+    keyword: str = "",
+    location: str = "",
+    location_type: list[str] | None = None,
+    employment_type: list[str] | None = None,
+    seniority_level: list[str] | None = None,
+    company: str = "",
+    industry: str = "",
+    count: int = 25,
+    cursor: str | None = None,
+) -> str:
+    """Search for job listings on X/Twitter.
+
+    Args:
+        keyword: Search keyword (e.g. "data engineer", "product manager").
+        location: Location filter (e.g. "Paris", "New York").
+        location_type: Location type filters (e.g. ["remote", "onsite", "hybrid"]).
+        employment_type: Employment type filters (e.g. ["full_time", "contract"]).
+        seniority_level: Seniority level filters (e.g. ["entry_level", "mid_level", "senior"]).
+        company: Company name filter.
+        industry: Industry filter.
+        count: Number of results per page (max 25).
+        cursor: Pagination cursor from a previous response.
+    """
+    try:
+        with XClient() as client:
+            response = _search_jobs(
+                client,
+                keyword=keyword,
+                location=location,
+                location_type=location_type,
+                employment_type=employment_type,
+                seniority_level=seniority_level,
+                company=company,
+                industry=industry,
+                count=count,
+                cursor=cursor,
+            )
+            return _serialize(response)
+    except Exception as e:
+        return _error_response(e)
+
+
+@mcp.tool()
+def get_job(job_id: str) -> str:
+    """Get detailed information about a specific job listing.
+
+    Args:
+        job_id: The job listing ID.
+    """
+    try:
+        with XClient() as client:
+            job = _get_job_detail(client, job_id=job_id)
+            if not job:
+                return json.dumps({"error": "Job not found", "type": "NotFoundError"})
+            return _serialize(job)
     except Exception as e:
         return _error_response(e)
 

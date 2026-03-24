@@ -30,12 +30,13 @@ clix/
 │   ├── user.py        # user commands
 │   ├── search.py      # search commands
 │   ├── lists.py       # list commands (view + CRUD)
-│   └── dm.py          # direct message commands
+│   ├── dm.py          # direct message commands
+│   └── jobs.py        # job search commands
 ├── mcp/               # MCP server
 │   ├── __init__.py
-│   └── server.py      # FastMCP server with 38 tools
+│   └── server.py      # FastMCP server with 46 tools
 ├── core/              # business logic (no CLI deps)
-│   ├── api.py         # API methods (read + write + DM + lists + media)
+│   ├── api.py         # API methods (read + write + DM + lists + media + jobs)
 │   ├── auth.py        # cookie extraction & credential management
 │   ├── client.py      # HTTP client (curl_cffi + TLS fingerprinting + transaction ID)
 │   ├── config.py      # TOML config management
@@ -44,9 +45,10 @@ clix/
 ├── models/            # pydantic models
 │   ├── tweet.py       # Tweet, TweetEngagement, TweetMedia, TimelineResponse
 │   ├── user.py        # User model
-│   └── dm.py          # DMConversation, DMMessage models
+│   ├── dm.py          # DMConversation, DMMessage models
+│   └── job.py         # Job, JobCompany, JobSearchResponse models
 ├── display/           # rich formatting (humans only)
-│   └── formatter.py   # tweet/user/thread/list/trend/DM/article formatting
+│   └── formatter.py   # tweet/user/thread/list/trend/DM/article/job formatting
 └── utils/
     ├── article.py     # Draft.js → Markdown converter (Twitter Articles)
     ├── filter.py      # engagement scoring
@@ -75,6 +77,10 @@ clix/
 - `clix block/unblock <handle>` — block operations
 - `clix mute/unmute <handle>` — mute operations
 - `clix download <tweet-id> [--output-dir DIR]` — download media
+
+### Jobs
+- `clix jobs search <query> [--location LOC] [--location-type remote|onsite|hybrid]` — search job listings
+- `clix jobs view <id>` — view job details
 
 ### Scheduled Tweets
 - `clix schedule <text> --at <time>` — schedule tweet
@@ -108,8 +114,8 @@ clix/
 - `--account` / `-a` — use specific account
 
 ## MCP Server
-`clix mcp` launches a stdio MCP server with 38 tools:
-- **Read:** `get_feed`, `search`, `get_tweet`, `get_user`, `list_bookmarks`, `get_trending`, `get_lists`, `get_list_timeline`, `get_list_members`, `get_tweets_batch`, `get_users_batch`, `dm_inbox`, `list_scheduled_tweets`
+`clix mcp` launches a stdio MCP server with 46 tools:
+- **Read:** `get_feed`, `search`, `get_tweet`, `get_user`, `list_bookmarks`, `get_trending`, `get_lists`, `get_list_timeline`, `get_list_members`, `get_tweets_batch`, `get_users_batch`, `dm_inbox`, `list_scheduled_tweets`, `search_jobs`, `get_job`
 - **Write:** `post_tweet`, `delete_tweet`, `like`, `unlike`, `retweet`, `unretweet`, `bookmark`, `unbookmark`, `follow`, `unfollow`, `block`, `unblock`, `mute`, `unmute`, `create_list`, `delete_list`, `add_list_member`, `remove_list_member`, `pin_list`, `unpin_list`, `dm_send`, `schedule_tweet`, `cancel_scheduled_tweet`, `download_media`
 - **Info:** `auth_status`
 

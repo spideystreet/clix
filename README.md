@@ -80,6 +80,13 @@ clix auth login
 | `clix lists remove-member <id> <handle>` | Remove member |
 | `clix lists pin <id>` / `clix lists unpin <id>` | Pin / unpin list |
 
+### Jobs
+
+| Command | Description |
+|---|---|
+| `clix jobs search <query> [--location LOC] [--location-type remote\|onsite\|hybrid]` | Search job listings on X |
+| `clix jobs view <id>` | View job details |
+
 ### Direct Messages
 
 | Command | Description |
@@ -145,7 +152,7 @@ Or with explicit auth:
 }
 ```
 
-**38 tools** covering all commands: feed, search, trending, tweets, users, bookmarks, lists, DMs, post, delete, like, unlike, retweet, unretweet, bookmark, unbookmark, follow, unfollow, block, unblock, mute, unmute, schedule, download, and more.
+**46 tools** covering all commands: feed, search, trending, tweets, users, bookmarks, lists, DMs, jobs, post, delete, like, unlike, retweet, unretweet, bookmark, unbookmark, follow, unfollow, block, unblock, mute, unmute, schedule, download, and more.
 
 ## Proxy Support
 
